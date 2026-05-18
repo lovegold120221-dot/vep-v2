@@ -147,6 +147,25 @@ export default function EburonApp() {
   const [memorySuccessMsg, setMemorySuccessMsg] = useState<string | null>(null);
   const [pendingChat, setPendingChat] = useState<{ spaceName: string; message: string; id: string } | null>(null);
   const [mapUrl, setMapUrl] = useState<string | null>(null);
+  const [driveFiles, setDriveFiles] = useState<any[]>([]);
+  const [isDriveLoading, setIsDriveLoading] = useState(false);
+  
+  const fetchDriveFiles = async () => {
+    const token = useAuth.getState().googleAccessToken;
+    if (!token) return;
+    setIsDriveLoading(true);
+    try {
+      const res = await fetch('https://www.googleapis.com/drive/v3/files?pageSize=20&fields=files(id,name,mimeType,webViewLink)', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setDriveFiles(data.files || []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDriveLoading(false);
+    }
+  };
   
   // Session & Timer State
   const [sessionID, setSessionID] = useState<string>(() => Math.random().toString(36).substring(7));
@@ -387,6 +406,97 @@ export default function EburonApp() {
             };
           }
 
+          if (fc.name === 'create_google_doc') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                const res = await fetch('https://docs.googleapis.com/v1/documents', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ title: fc.args.title || 'Untitled Document' })
+                });
+                const data = await res.json();
+                return { id: fc.id, response: { success: true, documentId: data.documentId, url: `https://docs.google.com/document/d/${data.documentId}/edit` } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
+          if (fc.name === 'create_google_sheet') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ properties: { title: fc.args.title || 'Untitled Spreadsheet' } })
+                });
+                const data = await res.json();
+                return { id: fc.id, response: { success: true, spreadsheetId: data.spreadsheetId, url: data.spreadsheetUrl } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
+          if (fc.name === 'create_google_slide') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                const res = await fetch('https://slides.googleapis.com/v1/presentations', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ title: fc.args.title || 'Untitled Presentation' })
+                });
+                const data = await res.json();
+                return { id: fc.id, response: { success: true, presentationId: data.presentationId, url: `https://docs.google.com/presentation/d/${data.presentationId}/edit` } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
+          if (fc.name === 'create_google_form') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                const res = await fetch('https://forms.googleapis.com/v1/forms', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ info: { title: fc.args.title || 'Untitled Form' } })
+                });
+                const data = await res.json();
+                return { id: fc.id, response: { success: true, formId: data.formId, responderUri: data.responderUri } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
+          if (fc.name === 'open_drive_picker') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                fetchDriveFiles();
+                setActiveOverlay('picker');
+                return { id: fc.id, response: { success: true, status: "Picker opened for user." } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
+          if (fc.name === 'fetch_google_api') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            try {
+               const url = fc.args.url;
+               const res = await fetch(url, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+               });
+               const data = await res.json();
+               return { id: fc.id, response: data };
+            } catch (err: any) {
+               return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
           if (fc.name === 'list_google_chat_spaces') {
             const token = useAuth.getState().googleAccessToken;
             if (!token) {
@@ -614,9 +724,11 @@ IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are
 
 - Use "schedule_meeting" to organize meetings.
 - Use "display_map" when asked to show a map, location, directions or anything map-related. Use the iframe URL provided or related.
+- Use "create_google_doc", "create_google_sheet", "create_google_slide", "create_google_form" to create new Workspace files for the user if they request it.
+- Use "open_drive_picker" to let the user select a file from their Google Drive.
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
-- Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Tasks).
+- Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Contacts, Tasks).
 
 GROUNDING & BROWSING:
 - You have NATIVE access to Google Search and URL fetching.
@@ -1504,6 +1616,34 @@ Output only natural spoken text. No stage directions, no brackets, no role label
               loading="lazy" 
               referrerPolicy="no-referrer-when-downgrade"
             ></iframe>
+          )}
+        </div>
+      </div>
+
+      {/* Picker Overlay */}
+      <div id="overlay-picker" className={`full-page-overlay ${activeOverlay === 'picker' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Google Drive Picker</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={20} /></button>
+        </div>
+        <div className="overlay-content" style={{ padding: '24px' }}>
+          {isDriveLoading ? (
+            <div>Loading your files...</div>
+          ) : driveFiles.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {driveFiles.map(file => (
+                <a 
+                  key={file.id} 
+                  href={file.webViewLink} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ padding: '12px', border: '1px solid var(--border-color)', borderRadius: '8px', color: 'inherit', textDecoration: 'none', display: 'block' }}>
+                  {file.name}
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div>No files found.</div>
           )}
         </div>
       </div>

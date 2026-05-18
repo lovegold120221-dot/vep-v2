@@ -152,4 +152,76 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
   },
+  {
+    name: 'create_google_doc',
+    description: 'Creates a new Google Doc with the specified title.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'The title of the new document.' }
+      },
+      required: ['title']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'create_google_sheet',
+    description: 'Creates a new Google Sheet with the specified title.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'The title of the new spreadsheet.' }
+      },
+      required: ['title']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'create_google_slide',
+    description: 'Creates a new Google Slide presentation with the specified title.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'The title of the new presentation.' }
+      },
+      required: ['title']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'create_google_form',
+    description: 'Creates a new Google Form with the specified title.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'The title of the new form.' }
+      },
+      required: ['title']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'open_drive_picker',
+    description: 'Opens a Google Drive file picker to let the user select a file.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {}
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'fetch_google_api',
+    description: 'Fetches data from a Google API. Provide the full endpoint URL. Useful for Gmail, Calendar, Contacts, Drive APIs. Method is GET.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        url: {
+          type: 'STRING',
+          description: 'The full Google API URL to fetch from (e.g. https://www.googleapis.com/calendar/v3/users/me/calendarList)'
+        }
+      },
+      required: ['url']
+    },
+    isEnabled: true,
+  },
 ];
