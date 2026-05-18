@@ -238,4 +238,18 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     },
     isEnabled: true,
   },
+  {
+    name: 'send_email',
+    description: 'Sends an email using the Gmail API.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        to: { type: 'STRING', description: 'The recipient email address.' },
+        subject: { type: 'STRING', description: 'The email subject.' },
+        body: { type: 'STRING', description: 'The email body text.' }
+      },
+      required: ['to', 'subject', 'body']
+    },
+    isEnabled: true,
+  },
 ];

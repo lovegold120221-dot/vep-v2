@@ -502,6 +502,30 @@ export default function EburonApp() {
             }
           }
 
+          if (fc.name === 'send_email') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            try {
+               const rawMessage = [
+                 `To: ${fc.args.to}`,
+                 `Subject: ${fc.args.subject}`,
+                 '',
+                 fc.args.body
+               ].join('\n');
+               const encodedMessage = btoa(rawMessage).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+               
+               const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ raw: encodedMessage })
+               });
+               const data = await res.json();
+               return { id: fc.id, response: { success: true, messageId: data.id } };
+            } catch (err: any) {
+               return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
           if (fc.name === 'fetch_google_api') {
             const token = useAuth.getState().googleAccessToken;
             if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
@@ -748,6 +772,7 @@ IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are
 - Use "open_drive_picker" to let the user select a file from their Google Drive.
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
+- Use "send_email" to send an email via Gmail.
 - Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Contacts, Tasks).
 
 GROUNDING & BROWSING:
