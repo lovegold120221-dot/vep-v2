@@ -187,6 +187,10 @@ export default function EburonApp() {
   const [historyToolFilter, setHistoryToolFilter] = useState<'all' | 'search' | 'memory' | 'meeting' | 'artifact' | 'command'>('all');
   const [historyDateRange, setHistoryDateRange] = useState<'all' | 'today' | 'week'>('all');
   const [historyError, setHistoryError] = useState<string | null>(null);
+  
+  const [whatsappQr, setWhatsappQr] = useState<string | null>(null);
+  const [isWhatsappLoading, setIsWhatsappLoading] = useState(false);
+  const [whatsappStatus, setWhatsappStatus] = useState<string | null>(null);
 
   const chatAreaRef = useRef<HTMLDivElement>(null);
 
@@ -256,6 +260,12 @@ export default function EburonApp() {
   const lastUserSpeechTime = useRef(Date.now());
   const fillerTriggeredRef = useRef(false);
   const aiIsSpeakingRef = useRef(false);
+
+  useEffect(() => {
+    if (activeOverlay === 'whatsapp' && !whatsappQr && !whatsappStatus) {
+      handleConnectWhatsapp();
+    }
+  }, [activeOverlay, whatsappQr, whatsappStatus]);
 
   useEffect(() => {
      if (clientVolume > 0.01) {
@@ -536,9 +546,8 @@ export default function EburonApp() {
 
           if (fc.name === 'send_whatsapp_message') {
              try {
-                // In a real app this would hit the Evolution API instance (e.g. your backend or the Evolution API directly if configured with CORS)
-                // We're mocking the response because we don't have the instance URL and API key from the user directly yet.
-                return { id: fc.id, response: { success: true, status: `Mock: WhatsApp message sent to ${fc.args.number} via Evolution API.` } };
+                const res = await api.sendWhatsappMessage(fc.args.number, fc.args.message);
+                return { id: fc.id, response: { success: true, status: `WhatsApp message sent to ${fc.args.number} via Evolution API.`, api_response: res } };
              } catch (err: any) {
                 return { id: fc.id, response: { error: err.message } };
              }
@@ -1071,6 +1080,35 @@ Output only natural spoken text. No stage directions, no brackets, no role label
         pendingPromptRef.current = prompt;
         connect();
       }
+    }
+  };
+
+  const handleConnectWhatsapp = async () => {
+    setIsWhatsappLoading(true);
+    setWhatsappStatus(null);
+    setWhatsappQr(null);
+    try {
+      const data = await api.connectWhatsapp();
+      if (data.instance?.state === 'open') {
+        setWhatsappStatus('open');
+      } else if (data.qrcode?.base64) {
+        setWhatsappQr(data.qrcode.base64);
+        setWhatsappStatus('qr');
+      } else if (data.base64) {
+        // sometimes evolution api returns base64 directly
+        setWhatsappQr(data.base64);
+        setWhatsappStatus('qr');
+      } else if (data.state === 'open') {
+        setWhatsappStatus('open');
+      } else {
+        setWhatsappStatus('unknown');
+        console.log("Evolution API response:", data);
+      }
+    } catch (e: any) {
+      console.error(e);
+      alert("Failed to connect to WhatsApp Evolution API: " + e.message);
+    } finally {
+      setIsWhatsappLoading(false);
     }
   };
 
@@ -1860,26 +1898,35 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           </div>
           <div style={{ 
             background: '#fff', 
-            width: '200px', 
-            height: '200px', 
+            width: '240px', 
+            height: '240px', 
             margin: '0 auto 24px', 
             borderRadius: '16px', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             padding: '16px',
-            boxSizing: 'content-box'
+            boxSizing: 'content-box',
+            color: '#000'
           }}>
-            <QrCode size={200} color="#000" />
+            {isWhatsappLoading ? (
+              <div className="text-gray-500">Loading connection...</div>
+            ) : whatsappStatus === 'open' ? (
+              <div className="text-green-600 font-bold">Connected to WhatsApp!</div>
+            ) : whatsappQr ? (
+              <img src={whatsappQr} alt="WhatsApp QR Code" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <QrCode size={120} color="#000" />
+            )}
           </div>
-          <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>For this to work, ensure the <a href="https://github.com/lovegold120221-dot/evolution-api.git" target="_blank" rel="noopener noreferrer" style={{color: '#4285F4'}}>Evolution API</a> backend is configured.</p>
-          <p style={{ fontSize: '12px', color: '#888' }}>QR Code expires in 60 seconds.</p>
+          <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>Ensure the <a href="https://github.com/EvolutionAPI/evolution-api" target="_blank" rel="noopener noreferrer" style={{color: '#4285F4'}}>Evolution API</a> backend is configured.</p>
           <button 
              className="btn-primary" 
              style={{ marginTop: '24px', padding: '12px 24px', borderRadius: '12px' }}
-             onClick={() => alert("Mock: Requesting new QR code from evolution-api instance")}
+             onClick={handleConnectWhatsapp}
+             disabled={isWhatsappLoading}
           >
-             Regenerate QR Code
+             {isWhatsappLoading ? 'Loading...' : 'Generate New QR Code'}
           </button>
         </div>
       </div>

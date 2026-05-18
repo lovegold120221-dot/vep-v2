@@ -346,6 +346,99 @@ async function startServer() {
     }
   });
 
+  // WhatsApp Evolution API - Send Message
+  app.post("/api/whatsapp/send", authenticateToken, async (req: any, res) => {
+    try {
+      const { number, message } = req.body;
+      if (!number || !message) {
+        return res.status(400).json({ error: "Missing 'number' or 'message'" });
+      }
+
+      const apiUrl = process.env.EVOLUTION_API_URL || "http://srv909561.hstgr.cloud:32856";
+      const apiKey = process.env.EVOLUTION_API_KEY || "PFGcwPHRmvlEdyEujWRrHjabyGnf6vJ7";
+      const instanceName = process.env.EVOLUTION_INSTANCE_NAME || "beatrice";
+
+      // Create instance if not exists (fire-and-forget for simplicity)
+      try {
+        await fetch(`${apiUrl}/instance/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+          body: JSON.stringify({ instanceName, token: apiKey, qrcode: true })
+        });
+      } catch (e) {
+         // ignore
+      }
+
+      const sendUrl = `${apiUrl}/message/sendText/${instanceName}`;
+      
+      // Evolution API expects numbers to have country code but no '+' and sometimes suffix like '@s.whatsapp.net', 
+      // but usually the API handles formatting if provided as "number": "5511999999999"
+      const payload = {
+        number: number,
+        text: message
+      };
+
+      const response = await fetch(sendUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": apiKey
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errData = await response.text();
+        throw new Error(`Evolution API error: ${response.status} ${errData}`);
+      }
+
+      const data = await response.json();
+      res.json({ success: true, data });
+    } catch (err: any) {
+      console.error("WhatsApp Send error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // WhatsApp Evolution API - Connect/QR
+  app.get("/api/whatsapp/connect", authenticateToken, async (req: any, res) => {
+    try {
+      const apiUrl = process.env.EVOLUTION_API_URL || "http://srv909561.hstgr.cloud:32856";
+      const apiKey = process.env.EVOLUTION_API_KEY || "PFGcwPHRmvlEdyEujWRrHjabyGnf6vJ7";
+      const instanceName = process.env.EVOLUTION_INSTANCE_NAME || "beatrice";
+
+      // First try to check connection state
+      let stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {
+        headers: { 'apikey': apiKey }
+      });
+
+      if (stateRes.status === 404) {
+        // Create instance if it doesn't exist
+        await fetch(`${apiUrl}/instance/create`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+           body: JSON.stringify({ instanceName, token: apiKey, qrcode: true })
+        });
+      }
+
+      // Try to get QR
+      const connectRes = await fetch(`${apiUrl}/instance/connect/${instanceName}`, {
+        headers: { 'apikey': apiKey }
+      });
+      
+      if (!connectRes.ok) {
+        const errData = await connectRes.text();
+        throw new Error(`Evolution API error: ${connectRes.status} ${errData}`);
+      }
+
+      const data = await connectRes.json();
+      res.json(data);
+    } catch (err: any) {
+      console.error("WhatsApp Connect error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
