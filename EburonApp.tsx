@@ -209,6 +209,11 @@ export default function EburonApp() {
           setIsAuthOpen(false);
           setActiveOverlay(null);
           
+          // Slight pause to allow Firebase to settle
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const { testConnection } = await import("./lib/firebase");
+          await testConnection();
+
           try {
             // Fetch Settings
             const settings: any = await api.fetchSettings() || {};
