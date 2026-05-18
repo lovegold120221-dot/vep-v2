@@ -289,4 +289,17 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     },
     isEnabled: true,
   },
+  {
+    name: 'send_whatsapp_message',
+    description: 'Sends a WhatsApp message using the Evolution API.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        number: { type: 'STRING', description: 'The phone number to send to, including country code (e.g., 5511999999999).' },
+        message: { type: 'STRING', description: 'The text message to send.' },
+      },
+      required: ['number', 'message']
+    },
+    isEnabled: true,
+  },
 ];

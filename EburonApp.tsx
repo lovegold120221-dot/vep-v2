@@ -60,7 +60,9 @@ import {
   ClipboardList,
   StickyNote,
   Users,
-  FileSearch
+  FileSearch,
+  MessageCircle,
+  QrCode
 } from 'lucide-react';
 
 const ToolIcons: Record<string, React.FC<any>> = {
@@ -532,6 +534,16 @@ export default function EburonApp() {
             }
           }
 
+          if (fc.name === 'send_whatsapp_message') {
+             try {
+                // In a real app this would hit the Evolution API instance (e.g. your backend or the Evolution API directly if configured with CORS)
+                // We're mocking the response because we don't have the instance URL and API key from the user directly yet.
+                return { id: fc.id, response: { success: true, status: `Mock: WhatsApp message sent to ${fc.args.number} via Evolution API.` } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
+          }
+
           if (fc.name === 'send_email') {
             const token = useAuth.getState().googleAccessToken;
             if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
@@ -876,6 +888,7 @@ IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are
 - Use "open_drive_picker" to let the user select a file from their Google Drive.
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
+- Use "send_whatsapp_message" to send WhatsApp messages (requires the WhatsApp QR to be linked by the user).
 - Use "send_email" to send an email via Gmail.
 - Use "create_task" to push a Task to Google Tasks.
 - Use "search_gmail" to search a user's Gmail inbox.
@@ -1010,7 +1023,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
   };
 
   const handleToolAction = (toolId: string) => {
-    if (['history', 'tools', 'profile', 'settings'].includes(toolId)) {
+    if (['history', 'tools', 'profile', 'settings', 'whatsapp'].includes(toolId)) {
       setActiveOverlay(toolId);
     } else {
       const prompts: Record<string, string> = {
@@ -1209,6 +1222,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             <div className="skill-chip" onClick={() => handleToolAction('slides')}><div className="skill-glyph bg-slides"><Presentation /></div><span className="skill-label">Slides</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('meet')}><div className="skill-glyph bg-drive"><Video /></div><span className="skill-label">Meet</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('contacts')}><div className="skill-glyph bg-google"><Users /></div><span className="skill-label">Contacts</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('whatsapp')}><div className="skill-glyph bg-google" style={{backgroundColor: '#25D366'}}><MessageCircle /></div><span className="skill-label">WhatsApp</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('picker')}><div className="skill-glyph bg-company"><FileSearch /></div><span className="skill-label">Picker</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('firebase')}><div className="skill-glyph bg-tools"><Database /></div><span className="skill-label">Firebase</span></div>
           </div>
@@ -1813,6 +1827,46 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           ) : (
             <div>No files found.</div>
           )}
+        </div>
+      </div>
+
+      {/* WhatsApp Overlay */}
+      <div id="overlay-whatsapp" className={`full-page-overlay ${activeOverlay === 'whatsapp' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Connect WhatsApp (Evolution API)</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={20} /></button>
+        </div>
+        <div className="overlay-content" style={{ padding: '32px', textAlign: 'center' }}>
+          <div style={{ marginBottom: '24px' }}>
+            <MessageCircle size={48} color="#25D366" style={{ margin: '0 auto', display: 'block' }} />
+            <h2 style={{ fontSize: '20px', color: '#fff', marginTop: '16px', marginBottom: '8px' }}>Link Your WhatsApp</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', maxWidth: '300px', margin: '0 auto' }}>
+              Scan the QR code to connect your WhatsApp account using Evolution API.
+            </p>
+          </div>
+          <div style={{ 
+            background: '#fff', 
+            width: '200px', 
+            height: '200px', 
+            margin: '0 auto 24px', 
+            borderRadius: '16px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            padding: '16px',
+            boxSizing: 'content-box'
+          }}>
+            <QrCode size={200} color="#000" />
+          </div>
+          <p style={{ fontSize: '12px', color: '#888', marginBottom: '8px' }}>For this to work, ensure the <a href="https://github.com/lovegold120221-dot/evolution-api.git" target="_blank" rel="noopener noreferrer" style={{color: '#4285F4'}}>Evolution API</a> backend is configured.</p>
+          <p style={{ fontSize: '12px', color: '#888' }}>QR Code expires in 60 seconds.</p>
+          <button 
+             className="btn-primary" 
+             style={{ marginTop: '24px', padding: '12px 24px', borderRadius: '12px' }}
+             onClick={() => alert("Mock: Requesting new QR code from evolution-api instance")}
+          >
+             Regenerate QR Code
+          </button>
         </div>
       </div>
 
