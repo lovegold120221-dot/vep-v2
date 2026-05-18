@@ -6,6 +6,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import cors from "cors";
 import dotenv from "dotenv";
 import fs from "fs";
+import { Pool } from "pg";
 
 dotenv.config();
 
@@ -19,6 +20,25 @@ if (!admin.apps.length) {
 }
 
 const db = getFirestore(undefined, firebaseConfig.firestoreDatabaseId);
+
+const pgPool = process.env.DATABASE_URL ? new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+}) : null;
+
+// Initialize PG Table if possible
+if (pgPool) {
+  pgPool.query(`
+    CREATE TABLE IF NOT EXISTS user_conversations (
+      id SERIAL PRIMARY KEY,
+      uid VARCHAR(255) NOT NULL,
+      session_id VARCHAR(255),
+      role VARCHAR(50) NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `).catch(err => console.error("Could not init PG table", err));
+}
 
 async function startServer() {
   const app = express();
@@ -144,11 +164,24 @@ async function startServer() {
         return res.status(400).json({ error: "Missing role or content" });
       }
 
+      // 1) Save to Postgres
+      if (pgPool) {
+        try {
+          await pgPool.query(
+            "INSERT INTO user_conversations (uid, session_id, role, content) VALUES ($1, $2, $3, $4)",
+            [uid, session_id || 'default', role, content]
+          );
+        } catch (e) {
+          console.error("PG Sync Error", e);
+        }
+      }
+
+      // 2) Save to Firebase (acts as standard local cloud edge backup here)
       const docRef = await db.collection('user_conversations').add({
         uid,
         role,
         content,
-        session_id,
+        session_id: session_id || 'default',
         created_at: admin.firestore.FieldValue.serverTimestamp()
       });
 

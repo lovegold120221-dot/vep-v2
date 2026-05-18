@@ -120,4 +120,36 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
   },
+  {
+    name: 'save_knowledge_keep',
+    description: 'Saves important AI corrections and user preferences to a Google Keep note as persistent knowledge.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        text: {
+          type: 'STRING',
+          description: 'The corrected knowledge or preference to save.',
+        },
+      },
+      required: ['text'],
+    },
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+  },
+  {
+    name: 'display_map',
+    description: 'Displays a Google Map with the provided iframe source URL on the user\'s screen.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        iframeSrc: {
+          type: 'STRING',
+          description: 'The src URL to embed for the map iframe.',
+        },
+      },
+      required: ['iframeSrc'],
+    },
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+  },
 ];

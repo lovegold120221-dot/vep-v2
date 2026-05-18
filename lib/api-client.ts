@@ -101,16 +101,41 @@ export async function saveConversationTurn(role: string, content: string, sessio
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
   
-  const docRef = await addDoc(collection(db, "user_conversations"), {
-    uid: user.uid,
-    role,
-    content,
-    session_id,
-    created_at: serverTimestamp()
-  });
+  const token = await user.getIdToken();
+  const dbType = import.meta.env.VITE_DATABASE_URL ? 'postgres' : 'firestore';
+
+  // We save to postgres (or at least hit our /api/conversations endpoint which handles both)
+  let result;
+  try {
+     const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+           'Content-Type': 'application/json',
+           'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role, content, session_id })
+     });
+     if (res.ok) {
+        result = await res.json();
+     }
+  } catch (err) {
+     console.error("Failed to save conversation via API", err);
+  }
+
+  // Still save locally/edge via Firestore if API is down
+  if (!result) {
+      const docRef = await addDoc(collection(db, "user_conversations"), {
+        uid: user.uid,
+        role,
+        content,
+        session_id,
+        created_at: serverTimestamp()
+      });
+      const snap = await getDoc(docRef);
+      result = { id: snap.id, ...snap.data() };
+  }
   
-  const snap = await getDoc(docRef);
-  return { id: snap.id, ...snap.data() };
+  return result;
 }
 
 export async function search(queryStr: string) {

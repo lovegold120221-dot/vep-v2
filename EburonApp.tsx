@@ -109,7 +109,7 @@ export default function EburonApp() {
   const [clientVolume, setClientVolume] = useState(0);
   const [audioRecorder] = useState(() => new AudioRecorder());
 
-  const { stream, videoRef, isWebcamActive, isScreenShareActive, startWebcam, startScreenShare, stopStream } = useVideoStream();
+  const { stream, videoRef, bindVideoRef, isWebcamActive, isScreenShareActive, startWebcam, startScreenShare, stopStream } = useVideoStream();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bgAudioRef = useRef<HTMLAudioElement>(null);
 
@@ -146,6 +146,7 @@ export default function EburonApp() {
   const [pendingMemory, setPendingMemory] = useState<{ content: string; type: string; id?: string } | null>(null);
   const [memorySuccessMsg, setMemorySuccessMsg] = useState<string | null>(null);
   const [pendingChat, setPendingChat] = useState<{ spaceName: string; message: string; id: string } | null>(null);
+  const [mapUrl, setMapUrl] = useState<string | null>(null);
   
   // Session & Timer State
   const [sessionID, setSessionID] = useState<string>(() => Math.random().toString(36).substring(7));
@@ -392,7 +393,34 @@ export default function EburonApp() {
             }
             try {
               const res = await fetch('https://chat.googleapis.com/v1/spaces', {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+              const data = await res.json();
+              return { id: fc.id, response: data };
+            } catch (err: any) {
+              return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
+          if (fc.name === 'save_knowledge_keep') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) {
+              return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            }
+            try {
+              const text = fc.args.text;
+              const res = await fetch('https://keep.googleapis.com/v1/notes', {
+                method: 'POST',
+                headers: { 
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  title: 'AI Stored Knowledge',
+                  body: {
+                    text: { text }
+                  }
+                })
               });
               const data = await res.json();
               return { id: fc.id, response: data };
@@ -414,6 +442,16 @@ export default function EburonApp() {
               id: fc.id,
               response: { success: true, status: "Awaiting user confirmation in UI." }
             };
+          }
+
+          if (fc.name === 'display_map') {
+             const iframeSrc = fc.args.iframeSrc;
+             if (!iframeSrc) {
+                return { id: fc.id, response: { error: "Missing iframeSrc" } };
+             }
+             setMapUrl(iframeSrc);
+             setActiveOverlay('map');
+             return { id: fc.id, response: { success: true, status: "Map displayed to the user." } };
           }
 
           const genericResponses: Record<string, any> = {
@@ -535,6 +573,7 @@ ${systemPrompt}
 You are emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
         
 IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
+If the user corrects you on any behavior, fact, or preference, silently call 'save_knowledge_keep' to store the correction as very important knowledge. Do not announce that you are saving it; just do it quietly.
 
 YOUR PERSONALIZED USER MEMORY:
 ${memoryStr || `No previous history yet. This is your first time meeting ${userCallName}.`}
@@ -573,6 +612,7 @@ You have access to several tools. When the user asks about weather, meetings, ch
 IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are doing it (e.g., "I'm putting this document together" or "Drafting that report") while continuing to speak naturally. NEVER verbalize internal technical details like tool names.
 
 - Use "schedule_meeting" to organize meetings.
+- Use "display_map" when asked to show a map, location, directions or anything map-related. Use the iframe URL provided or related.
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
 - Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Tasks).
@@ -960,29 +1000,47 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           </button>
 
           <button className={`nav-item ${isWebcamActive ? 'active' : ''}`} onClick={isWebcamActive ? stopStream : startWebcam}>
-             <div className="icon-wrapper">
+             <div className="icon-wrapper" style={{ overflow: 'hidden' }}>
                <div className="icon-pulse" style={{ 
                  width: isWebcamActive ? `32px` : '0px', 
                  height: isWebcamActive ? `32px` : '0px',
                  opacity: isWebcamActive ? 0.3 : 0,
                  animation: isWebcamActive ? 'pulse-anim 2s infinite' : 'none'
                }}></div>
-               {isWebcamActive ? <Video size={18} /> : <VideoOff size={18} />}
+               {isWebcamActive ? (
+                 <video 
+                   ref={isWebcamActive ? bindVideoRef : undefined}
+                   autoPlay 
+                   playsInline 
+                   muted 
+                   style={{
+                     width: '100%',
+                     height: '100%',
+                     objectFit: 'cover',
+                     position: 'absolute',
+                     top: 0,
+                     left: 0,
+                     zIndex: 2
+                   }}
+                 />
+               ) : (
+                 <VideoOff size={18} style={{ zIndex: 3 }} />
+               )}
              </div>
              <span>{isWebcamActive ? 'Stop Cam' : 'Camera'}</span>
           </button>
         </nav>
       </div>
 
-      {/* Video Overlay */}
+      {/* Screen Share Overlay */}
 
       <video 
-        ref={videoRef} 
+        ref={isScreenShareActive ? bindVideoRef : undefined}
         autoPlay 
         playsInline 
         muted 
-        className={`video-overlay ${isScreenShareActive ? 'screenshare' : 'webcam'}`}
-        style={{ display: stream ? 'block' : 'none' }} 
+        className="video-overlay screenshare"
+        style={{ display: isScreenShareActive && stream ? 'block' : 'none' }} 
       />
 
       {/* Workspace & Artifact Overlay */}
@@ -1428,6 +1486,27 @@ Output only natural spoken text. No stage directions, no brackets, no role label
         </div>
       </div>
 
+      {/* Map Overlay */}
+      <div id="overlay-map" className={`full-page-overlay ${activeOverlay === 'map' ? 'active' : ''}`}>
+        <div className="overlay-header">
+          <div className="overlay-title">Navigation Map</div>
+          <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={20} /></button>
+        </div>
+        <div className="overlay-content" style={{ padding: 0, overflow: 'hidden' }}>
+          {mapUrl && (
+            <iframe 
+              src={mapUrl} 
+              width="100%" 
+              height="100%" 
+              style={{ border: 0 }} 
+              allowFullScreen 
+              loading="lazy" 
+              referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+          )}
+        </div>
+      </div>
+
       {/* Tools Overlay */}
       <div id="overlay-tools" className={`full-page-overlay ${activeOverlay === 'tools' ? 'active' : ''}`}>
         <div className="overlay-header">
@@ -1474,10 +1553,33 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           <form className="auth-form" onSubmit={handleEmailAuth}>
             {authError && <div style={{color:'red', marginBottom:'10px', fontSize:'14px'}}>{authError}</div>}
             {isSignupMode && (
-               <div className="auth-input-wrapper">
-                 <User className="auth-icon-left" size={20} />
-                 <input type="text" placeholder="Full name" value={name || ''} onChange={e => setName(e.target.value)} />
-               </div>
+               <>
+                 <div className="auth-input-wrapper">
+                   <User className="auth-icon-left" size={20} />
+                   <input type="text" placeholder="Full name" value={name || ''} onChange={e => setName(e.target.value)} />
+                 </div>
+                 <div className="auth-input-wrapper">
+                   <select 
+                     style={{
+                        width: '100%',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-color)',
+                        padding: '12px',
+                        outline: 'none',
+                        appearance: 'auto',
+                        paddingLeft: '32px'
+                     }}
+                     onChange={(e) => setLanguage(e.target.value)} 
+                     value={language || ''}
+                   >
+                      <option value="" disabled>Select Native Language</option>
+                      {LANGUAGES.map((lang) => (
+                        <option key={lang} value={lang} style={{background: '#111', color: '#fff'}}>{lang}</option>
+                      ))}
+                   </select>
+                 </div>
+               </>
             )}
             <div className="auth-input-wrapper">
               <Mail className="auth-icon-left" size={20} />

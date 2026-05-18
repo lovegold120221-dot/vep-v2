@@ -1,10 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useVideoStream() {
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const [isScreenShareActive, setIsScreenShareActive] = useState(false);
+
+  const bindVideoRef = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    if (node) {
+      node.srcObject = stream;
+    }
+  }, [stream]);
 
   const startWebcam = async () => {
     try {
@@ -15,9 +22,6 @@ export function useVideoStream() {
       setStream(newStream);
       setIsWebcamActive(true);
       setIsScreenShareActive(false);
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-      }
     } catch (err) {
       console.error("Error accessing webcam", err);
     }
@@ -38,9 +42,6 @@ export function useVideoStream() {
       setStream(newStream);
       setIsScreenShareActive(true);
       setIsWebcamActive(false);
-      if (videoRef.current) {
-        videoRef.current.srcObject = newStream;
-      }
     } catch (err) {
       console.error("Error accessing screen share", err);
     }
@@ -53,14 +54,12 @@ export function useVideoStream() {
     setStream(null);
     setIsWebcamActive(false);
     setIsScreenShareActive(false);
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
   };
 
   return {
     stream,
     videoRef,
+    bindVideoRef,
     isWebcamActive,
     isScreenShareActive,
     startWebcam,
@@ -68,3 +67,4 @@ export function useVideoStream() {
     stopStream
   };
 }
+
