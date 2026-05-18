@@ -403,9 +403,13 @@ async function startServer() {
   // WhatsApp Evolution API - Connect/QR
   app.get("/api/whatsapp/connect", authenticateToken, async (req: any, res) => {
     try {
-      const apiUrl = process.env.EVOLUTION_API_URL || "http://srv909561.hstgr.cloud:32856";
-      const apiKey = process.env.EVOLUTION_API_KEY || "PFGcwPHRmvlEdyEujWRrHjabyGnf6vJ7";
+      const apiUrl = process.env.EVOLUTION_API_URL;
+      const apiKey = process.env.EVOLUTION_API_KEY;
       const instanceName = process.env.EVOLUTION_INSTANCE_NAME || "beatrice";
+
+      if (!apiUrl || !apiKey) {
+        throw new Error("Evolution API configuration missing (URL or Key)");
+      }
 
       // First try to check connection state
       let stateRes = await fetch(`${apiUrl}/instance/connectionState/${instanceName}`, {

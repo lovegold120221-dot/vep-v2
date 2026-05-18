@@ -646,11 +646,23 @@ export const useUI = create<{
   toggleSidebar: () => void;
   activeWorkspaceResult: any;
   setActiveWorkspaceResult: (result: any) => void;
+  pendingChat: { spaceName: string; message: string; id: string } | null;
+  setPendingChat: (chat: { spaceName: string; message: string; id: string } | null) => void;
+  mapUrl: string | null;
+  setMapUrl: (url: string | null) => void;
+  activeOverlay: string | null;
+  setActiveOverlay: (overlay: string | null) => void;
 }>(set => ({
   isSidebarOpen: true,
   toggleSidebar: () => set(state => ({ isSidebarOpen: !state.isSidebarOpen })),
   activeWorkspaceResult: null,
-  setActiveWorkspaceResult: (result) => set({ activeWorkspaceResult: result })
+  setActiveWorkspaceResult: (result) => set({ activeWorkspaceResult: result }),
+  pendingChat: null,
+  setPendingChat: (pendingChat) => set({ pendingChat }),
+  mapUrl: null,
+  setMapUrl: (mapUrl) => set({ mapUrl }),
+  activeOverlay: null,
+  setActiveOverlay: (activeOverlay) => set({ activeOverlay })
 }));
 
 /**

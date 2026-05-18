@@ -101,13 +101,9 @@ export function useLiveApi({
 
     // Bind event listeners
     const onToolCall = async (toolCall: LiveServerToolCall) => {
-      const functionResponses: any[] = [];
-
-      for (const fc of toolCall.functionCalls) {
+      const functionResponses = await Promise.all(toolCall.functionCalls.map(async (fc) => {
         // Log the function call trigger
-        const triggerMessage = `Triggering function call: **${
-          fc.name
-        }**\n\`\`\`json\n${JSON.stringify(fc.args, null, 2)}\n\`\`\``;
+        const triggerMessage = `Triggering function call: **${fc.name}**\n\`\`\`json\n${JSON.stringify(fc.args, null, 2)}\n\`\`\``;
         useLogStore.getState().addTurn({
           role: 'system',
           text: triggerMessage,
@@ -116,395 +112,345 @@ export function useLiveApi({
 
         let responsePayload: any = { result: 'ok' };
         
-        if (fc.name === 'fetch_google_api') {
-           const { url, method, body } = fc.args as any;
-           const token = useAuth.getState().googleAccessToken;
-           if (!token) {
-               responsePayload = { error: 'No Google access token found, please authenticate with Google (Sign in option).' };
-           } else if (!url) {
-               responsePayload = { error: 'Missing full URL for Google API.' };
-           } else {
-               try {
-                   const headers: any = { Authorization: `Bearer ${token}` };
-                   let fetchBody = undefined;
-                   if (body) {
-                       headers['Content-Type'] = 'application/json';
-                       fetchBody = typeof body === 'string' ? body : JSON.stringify(body);
-                   }
+        try {
+          const { useUI, useAuth } = await import('../../lib/state');
+          const ui = useUI.getState();
+          const authState = useAuth.getState();
+          const token = authState.googleAccessToken;
 
-                   const res = await fetch(url, {
-                       method: method || 'GET',
-                       headers,
-                       body: fetchBody
-                   });
+          switch (fc.name) {
+            case 'get_current_datetime':
+              responsePayload = {
+                datetime: new Date().toISOString(),
+                readable: new Date().toString()
+              };
+              break;
 
-                   let dataText = '';
-                   try { dataText = await res.text(); } catch (e) {}
-
-                   let json = null;
-                   if (dataText) {
-                       try { json = JSON.parse(dataText); } catch(e) {}
-                   }
-                   
-                   if (!res.ok) {
-                       responsePayload = { 
-                           error: `HTTP Error ${res.status}: ${res.statusText}`, 
-                           status: res.status,
-                           details: json || dataText || 'No error body returned.'
-                       };
-                   } else {
-                       responsePayload = {
-                           data: json || dataText
-                       };
-                       // If meaningful response, set in UI workspace
-                       if (json && Object.keys(json).length > 0) {
-                           const uiState = await import('../../lib/state');
-                           uiState.useUI.getState().setActiveWorkspaceResult(json);
-                       }
-                   }
-               } catch (e: any) {
-                   responsePayload = { error: 'Request execution failed. Network might be down or API blocked.', message: e.message };
-               }
-           }
-        }
-
-        if (fc.name === 'save_memory') {
-           const { memory, type } = fc.args as any;
-           const user = auth.currentUser;
-           if (!user) {
-               responsePayload = { error: 'No user authenticated. Cannot save memory.' };
-           } else {
-               try {
-                   await api.saveMemory(memory, type || 'personal');
-                   responsePayload = { status: 'Memory saved successfully' };
-               } catch (e: any) {
-                   console.error("Error saving memory to Postgres:", e);
-                   responsePayload = { error: 'Failed to save memory' };
-               }
-           }
-        }
-
-        if (fc.name === 'generate_artifact') {
-           const { title, type, content, language } = fc.args as any;
-           responsePayload = { status: 'Artifact generated successfully', title };
-           const uiState = await import('../../lib/state');
-           uiState.useUI.getState().setActiveWorkspaceResult({
-              artifact: { title, type, content, language }
-           });
-        }
-
-        if (fc.name === 'create_calendar_event') {
-          const { summary, location, startTime, endTime } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-                method: 'POST',
-                headers: { 
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  summary,
-                  location,
-                  start: { dateTime: startTime },
-                  end: { dateTime: endTime }
-                })
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
-
-        if (fc.name === 'send_email') {
-          const { recipient, subject, body } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              // Gmail API uses base64url encoded RFC822 messages
-              const utf8Encoder = new TextEncoder();
-              const email = [
-                `To: ${recipient}`,
-                `Subject: ${subject}`,
-                '',
-                body
-              ].join('\r\n');
-              const encodedEmail = btoa(email).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-              
-              const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-                method: 'POST',
-                headers: { 
-                  Authorization: `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ raw: encodedEmail })
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
-
-        if (fc.name === 'get_current_datetime') {
-          responsePayload = {
-            datetime: new Date().toISOString(),
-             readable: new Date().toString()
-          };
-        }
-
-        if (fc.name === 'calculate') {
-          const { expression } = fc.args as any;
-          try {
-             // Safe eval using Function for basic math ONLY
-             if (!/^[0-9+\-*/().%\s]+$/.test(expression)) {
-                throw new Error("Expression contains unsupported characters.");
-             }
-             // eslint-disable-next-line
-             const result = new Function(`return (${expression})`)();
-             responsePayload = { result };
-          } catch (e: any) {
-             responsePayload = { error: e.message };
-          }
-        }
-
-        if (fc.name === 'execute_safe_command') {
-          const { command } = fc.args as any;
-          try {
-             const token = useAuth.getState().googleAccessToken || 'debug-token';
-             const res = await fetch(`/api/system_command?cmd=${encodeURIComponent(command)}`, {
-                 headers: { Authorization: `Bearer ${token}` } // Wait, system command needs a backend API
-             });
-             responsePayload = await res.json();
-          } catch (e: any) {
-             responsePayload = { error: e.message };
-          }
-        }
-
-        if (fc.name === 'search_drive_files') {
-          const { q } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const url = new URL('https://www.googleapis.com/drive/v3/files');
-              if (q) url.searchParams.append('q', q);
-              url.searchParams.append('pageSize', '10');
-              url.searchParams.append('fields', 'files(id, name, mimeType, webViewLink)');
-              const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
-
-        if (fc.name === 'get_drive_file_content') {
-          const { fileId } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=name,mimeType`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              const fileInfo = await fileRes.json();
-              if (fileInfo.mimeType === 'application/vnd.google-apps.document') {
-                  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=text/plain`, {
-                    headers: { Authorization: `Bearer ${token}` }
-                  });
-                  responsePayload = { text: await res.text() };
+            case 'calculate':
+              const { expression } = fc.args as any;
+              if (!/^[0-9+\-*/().%\s]+$/.test(expression)) {
+                responsePayload = { error: "Expression contains unsupported characters." };
               } else {
-                  responsePayload = { 
-                      error: 'Can only extract text from Google Docs right now. Provided file is ' + fileInfo.mimeType,
-                      info: fileInfo
-                  };
+                // eslint-disable-next-line
+                responsePayload = { result: new Function(`return (${expression})`)() };
               }
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
+              break;
 
-        if (fc.name === 'list_gmail_messages') {
-          const { q } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages');
-              if (q) url.searchParams.append('q', q);
-              const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
+            case 'create_markdown_document':
+            case 'create_html_document':
+            case 'create_project_brief':
+            case 'create_checklist':
+            case 'create_json_file':
+            case 'create_readme':
+            case 'create_chart_spec':
+            case 'extract_tasks':
+              ui.setActiveWorkspaceResult({ artifact: fc.args });
+              responsePayload = { status: 'Artifact created and displayed in UI.' };
+              break;
 
-        if (fc.name === 'get_gmail_message') {
-          const { id } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
+            case 'save_note':
+              const notes = JSON.parse(localStorage.getItem('eburon_notes') || '[]');
+              notes.push({ ...fc.args, timestamp: new Date().toISOString() });
+              localStorage.setItem('eburon_notes', JSON.stringify(notes));
+              responsePayload = { status: 'Note saved successfully.' };
+              break;
 
-        if (fc.name === 'list_calendar_events') {
-          const { timeMin, timeMax } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');
-              if (timeMin) url.searchParams.append('timeMin', timeMin);
-              if (timeMax) url.searchParams.append('timeMax', timeMax);
-              const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
+            case 'read_note':
+              const allNotes = JSON.parse(localStorage.getItem('eburon_notes') || '[]');
+              const note = allNotes.find((n: any) => n.name === (fc.args as any).name);
+              responsePayload = note || { error: 'Note not found.' };
+              break;
 
-        if (fc.name === 'search_contacts') {
-          const { query } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found, please authenticate.' };
-          } else {
-            try {
-              const url = new URL('https://people.googleapis.com/v1/people/me/connections');
-              url.searchParams.append('personFields', 'names,emailAddresses');
-              const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              const data = await res.json();
-              if (query) {
-                  // Simple client-side filtering
-                  data.connections = data.connections?.filter((c: any) => 
-                      c.names?.some((n: any) => n.displayName.toLowerCase().includes(query.toLowerCase()))
-                  );
+            case 'list_notes':
+              responsePayload = { notes: JSON.parse(localStorage.getItem('eburon_notes') || '[]') };
+              break;
+
+            case 'validate_json':
+              try {
+                JSON.parse((fc.args as any).json_text);
+                responsePayload = { valid: true };
+              } catch (e) {
+                responsePayload = { valid: false, error: (e as Error).message };
               }
-              responsePayload = data;
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
-          }
-        }
+              break;
 
-        if (fc.name === 'get_current_date') {
-          responsePayload = { date: new Date().toISOString() };
-        }
+            case 'execute_safe_command':
+              if (token) {
+                const res = await fetch(`/api/system_command?cmd=${encodeURIComponent((fc.args as any).command)}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                responsePayload = await res.json();
+              } else {
+                responsePayload = { error: 'Unauthorized: Command execution requires login.' };
+              }
+              break;
 
-        if (fc.name === 'get_user_location') {
-          try {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject);
-            });
-            responsePayload = {
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-              accuracy: position.coords.accuracy
-            };
-          } catch (e: any) {
-            responsePayload = { error: e.message || 'Geolocation failed' };
-          }
-        }
+            case 'open_browser_url':
+              window.open((fc.args as any).url, '_blank');
+              responsePayload = { status: 'URL opened in a new tab.' };
+              break;
 
-        if (fc.name === 'search_places') {
-          const { query, location } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          // Places API usually uses API Key, but we can try to use the token if proxied or use the fetch tool
-          // Actually, for consistency, we'll try to fetch it.
-          try {
-            // Using the Places API (New)
-            const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location'
-              },
-              body: JSON.stringify({
-                textQuery: query,
-                locationBias: location ? {
-                  circle: {
-                    center: {
-                      latitude: parseFloat(location.split(',')[0]),
-                      longitude: parseFloat(location.split(',')[1])
-                    },
-                    radius: 5000.0
-                  }
-                } : undefined
-              })
-            });
-            responsePayload = await res.json();
-          } catch (e: any) {
-            responsePayload = { error: e.message };
-          }
-        }
+            case 'save_memory':
+              const user = auth.currentUser;
+              if (!user) {
+                responsePayload = { error: 'No user authenticated. Cannot save memory.' };
+              } else {
+                await api.saveMemory((fc.args as any).content, (fc.args as any).type || 'personal');
+                responsePayload = { success: true, status: 'Memory saved successfully' };
+              }
+              break;
 
-        if (fc.name === 'list_contacts') {
-          const { pageSize } = fc.args as any;
-          const token = useAuth.getState().googleAccessToken;
-          if (!token) {
-            responsePayload = { error: 'No Google access token found.' };
-          } else {
-            try {
-              const url = new URL('https://people.googleapis.com/v1/people/me/connections');
-              url.searchParams.append('personFields', 'names,emailAddresses,phoneNumbers');
-              url.searchParams.append('pageSize', (pageSize || 10).toString());
-              const res = await fetch(url.toString(), {
-                headers: { Authorization: `Bearer ${token}` }
+            case 'create_task':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                 const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: (fc.args as any).title, notes: (fc.args as any).notes })
+                 });
+                 const data = await res.json();
+                 responsePayload = res.ok ? { success: true, task: data } : { error: data.error?.message || "Unknown error" };
+              }
+              break;
+
+            case 'create_google_doc':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                 const res = await fetch('https://docs.googleapis.com/v1/documents', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: (fc.args as any).title || 'Untitled Document' })
+                 });
+                 const data = await res.json();
+                 responsePayload = res.ok ? { success: true, documentId: data.documentId, url: `https://docs.google.com/document/d/${data.documentId}/edit` } : { error: data.error?.message || "Unknown error" };
+              }
+              break;
+
+            case 'create_google_sheet':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                 const res = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ properties: { title: (fc.args as any).title || 'Untitled Spreadsheet' } })
+                 });
+                 const data = await res.json();
+                 responsePayload = res.ok ? { success: true, spreadsheetId: data.spreadsheetId, url: data.spreadsheetUrl } : { error: data.error?.message || "Unknown error" };
+              }
+              break;
+
+            case 'create_google_slide':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                 const res = await fetch('https://slides.googleapis.com/v1/presentations', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: (fc.args as any).title || 'Untitled Presentation' })
+                 });
+                 const data = await res.json();
+                 responsePayload = res.ok ? { success: true, presentationId: data.presentationId, url: `https://docs.google.com/presentation/d/${data.presentationId}/edit` } : { error: data.error?.message || "Unknown error" };
+              }
+              break;
+
+            case 'create_google_form':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                 const res = await fetch('https://forms.googleapis.com/v1/forms', {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ info: { title: (fc.args as any).title || 'Untitled Form' } })
+                 });
+                 const data = await res.json();
+                 responsePayload = res.ok ? { success: true, formId: data.formId, responderUri: data.responderUri } : { error: data.error?.message || "Unknown error" };
+              }
+              break;
+
+            case 'open_drive_picker':
+              ui.setActiveOverlay('picker');
+              responsePayload = { success: true, status: "Picker opened for user." };
+              break;
+
+            case 'schedule_meeting':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({
+                     summary: (fc.args as any).summary,
+                     start: { dateTime: (fc.args as any).startDateTime },
+                     end: { dateTime: (fc.args as any).endDateTime }
+                   })
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? { success: true, eventLink: data.htmlLink || data.id } : { error: data.error?.message || "Unknown API error" };
+              }
+              break;
+
+            case 'send_email':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                const rawMessage = [
+                  `To: ${(fc.args as any).to}`,
+                  `Subject: ${(fc.args as any).subject}`,
+                  '',
+                  (fc.args as any).body
+                ].join('\n');
+                const encodedMessage = btoa(unescape(encodeURIComponent(rawMessage)))
+                  .replace(/\+/g, '-')
+                  .replace(/\//g, '_')
+                  .replace(/=+$/, '');
+                
+                const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ raw: encodedMessage })
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? { success: true, messageId: data.id } : { error: data.error?.message || "Unknown API error" };
+              }
+              break;
+
+            case 'get_contacts':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                const res = await fetch(`https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=${(fc.args as any).maxResults || 50}`, {
+                   headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? data : { error: data.error?.message || "Unknown API error" };
+              }
+              break;
+
+            case 'fetch_google_api':
+              if (!token) {
+                responsePayload = { error: 'No Google access token found, please authenticate.' };
+              } else {
+                const { url, method, body } = fc.args as any;
+                const headers: any = { Authorization: `Bearer ${token}` };
+                if (body) {
+                  headers['Content-Type'] = 'application/json';
+                }
+                const res = await fetch(url, {
+                  method: method || 'GET',
+                  headers,
+                  body: body ? JSON.stringify(body) : undefined
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? { data } : { error: data.error?.message || 'API error', details: data };
+                if (res.ok && data) ui.setActiveWorkspaceResult(data);
+              }
+              break;
+
+            case 'send_whatsapp_message':
+              try {
+                const res = await api.sendWhatsappMessage((fc.args as any).number, (fc.args as any).message);
+                responsePayload = { success: true, api_response: res };
+              } catch (err: any) {
+                responsePayload = { error: err.message };
+              }
+              break;
+
+            case 'display_map':
+              ui.setMapUrl((fc.args as any).iframeSrc);
+              ui.setActiveOverlay('map');
+              responsePayload = { status: 'Map displayed to the user.' };
+              break;
+
+            case 'search_gmail':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                const q = encodeURIComponent((fc.args as any).query);
+                const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${(fc.args as any).maxResults || 20}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? data : { error: data.error?.message || 'API error' };
+              }
+              break;
+
+            case 'list_google_chat_spaces':
+              if (!token) {
+                responsePayload = { error: 'Google OAuth token missing.' };
+              } else {
+                const res = await fetch('https://chat.googleapis.com/v1/spaces', {
+                  headers: { 'Authorization': `Bearer ${token}` },
+                });
+                const data = await res.json();
+                responsePayload = res.ok ? data : { error: data.error?.message || 'API error' };
+              }
+              break;
+
+            case 'send_google_chat_message':
+              ui.setPendingChat({ 
+                spaceName: (fc.args as any).spaceName, 
+                message: (fc.args as any).messageText, 
+                id: fc.id 
               });
-              responsePayload = await res.json();
-            } catch (e: any) {
-              responsePayload = { error: e.message };
-            }
+              responsePayload = { status: 'Awaiting user confirmation in UI.' };
+              break;
+
+            case 'save_knowledge_keep':
+              if (token) {
+                const res = await fetch('https://keep.googleapis.com/v1/notes', {
+                  method: 'POST',
+                  headers: { 
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                  },
+                  body: JSON.stringify({
+                    title: 'Beatrice Stored Knowledge',
+                    body: { text: { text: (fc.args as any).text } }
+                  })
+                });
+                responsePayload = await res.json();
+              } else {
+                responsePayload = { error: 'Unauthorized: Knowledge storage requires login.' };
+              }
+              break;
+
+            case 'register_google_site_asset':
+            case 'create_site_content_plan':
+            case 'create_deployment_portal_copy':
+            case 'create_restaurant_demo_site_copy':
+              // Store the request in the workspace state for UI display
+              ui.setActiveWorkspaceResult({ 
+                type: 'site_asset',
+                tool: fc.name,
+                args: fc.args,
+                timestamp: new Date().toISOString()
+              });
+              responsePayload = { success: true, message: `Tool ${fc.name} executed. Content plan and copy generated in the Workspace.` };
+              break;
+
+            default:
+              responsePayload = { error: `Tool ${fc.name} implementation pending integration.` };
+              break;
           }
+        } catch (err: any) {
+          console.error(`Tool execution error [${fc.name}]:`, err);
+          responsePayload = { error: err.message };
         }
 
-        // Prepare the response
-        functionResponses.push({
+        return {
           id: fc.id,
           name: fc.name,
           response: responsePayload,
-        });
-      }
+        };
+      }));
 
-      // Log the function call response
+      // Log the function call responses
       if (functionResponses.length > 0) {
-        const responseMessage = `Function call response:\n\`\`\`json\n${JSON.stringify(
-          functionResponses,
-          null,
-          2,
-        )}\n\`\`\``;
+        const responseMessage = `Function call response:\n\`\`\`json\n${JSON.stringify(functionResponses, null, 2)}\n\`\`\``;
         useLogStore.getState().addTurn({
           role: 'system',
           text: responseMessage,
@@ -512,7 +458,7 @@ export function useLiveApi({
         });
       }
 
-      client.sendToolResponse({ functionResponses: functionResponses });
+      client.sendToolResponse({ functionResponses });
     };
 
     client.on('open', onOpen);
