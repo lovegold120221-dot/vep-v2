@@ -540,6 +540,7 @@ export function useLiveApi({
   }, [client, config]);
 
   const disconnect = useCallback(async () => {
+    console.trace('DISCONNECT CALLED');
     client.disconnect();
     setConnected(false);
   }, [setConnected, client]);
