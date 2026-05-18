@@ -1054,7 +1054,15 @@ Output only natural spoken text. No stage directions, no brackets, no role label
      provider.addScope('https://www.googleapis.com/auth/contacts.readonly');
      provider.addScope('https://www.googleapis.com/auth/userinfo.email');
      provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-     provider.addScope('https://www.googleapis.com/auth/chat');
+     provider.addScope('https://www.googleapis.com/auth/chat.messages');
+     provider.addScope('https://www.googleapis.com/auth/chat.spaces');
+     provider.addScope('https://www.googleapis.com/auth/documents');
+     provider.addScope('https://www.googleapis.com/auth/forms.body');
+     provider.addScope('https://www.googleapis.com/auth/forms.responses.readonly');
+     provider.addScope('https://www.googleapis.com/auth/keep');
+     provider.addScope('https://www.googleapis.com/auth/meetings.space.created');
+     provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+     provider.addScope('https://www.googleapis.com/auth/presentations');
      
      try {
         const result = await signInWithPopup(auth, provider);

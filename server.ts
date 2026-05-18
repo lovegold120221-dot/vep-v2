@@ -434,8 +434,9 @@ async function startServer() {
       const data = await connectRes.json();
       res.json(data);
     } catch (err: any) {
-      console.error("WhatsApp Connect error:", err.message);
-      res.status(500).json({ error: err.message });
+      console.error("WhatsApp Connect error:", err);
+      const msg = err.message || String(err);
+      res.status(500).json({ error: msg.includes("fetch failed") ? "Failed to connect to Evolution API server (fetch failed)." : msg });
     }
   });
 
