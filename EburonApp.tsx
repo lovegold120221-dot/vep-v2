@@ -47,8 +47,36 @@ import {
   Trash,
   AlertCircle,
   Lock,
-  Quote
+  Quote,
+  Calculator,
+  BarChart2,
+  CheckSquare,
+  Terminal,
+  FileJson,
+  FileCode,
+  FileText,
+  Link
 } from 'lucide-react';
+
+const ToolIcons: Record<string, React.FC<any>> = {
+  get_current_datetime: Clock,
+  calculate: Calculator,
+  create_markdown_document: FileText,
+  create_html_document: FileCode,
+  create_project_brief: FileText,
+  create_checklist: CheckSquare,
+  save_note: Pencil,
+  read_note: Quote,
+  list_notes: Database,
+  create_json_file: FileJson,
+  validate_json: ShieldCheck,
+  create_env_template: Lock,
+  create_readme: FileText,
+  create_chart_spec: BarChart2,
+  execute_safe_command: Terminal,
+  open_browser_url: Link,
+  extract_tasks: CheckSquare,
+};
 
 export default function EburonApp() {
   const [isAuthOpen, setIsAuthOpen] = useState(true);
@@ -1181,11 +1209,11 @@ Output only natural spoken text. No stage directions, no brackets, no role label
         <div className="overlay-content">
           <div className="form-group">
             <label>Persona Name</label>
-            <input type="text" className="form-input" value={personaName} onChange={(e) => setPersonaName(e.target.value)} />
+            <input type="text" className="form-input" value={personaName || ''} onChange={(e) => setPersonaName(e.target.value)} />
           </div>
           <div className="form-group">
             <label>How to call you</label>
-            <input type="text" className="form-input" value={userCallName} onChange={(e) => setUserCallName(e.target.value)} />
+            <input type="text" className="form-input" value={userCallName || ''} onChange={(e) => setUserCallName(e.target.value)} />
           </div>
           
           <div className="form-group">
@@ -1193,7 +1221,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             <textarea 
               className="form-input" 
               rows={4} 
-              value={systemPrompt} 
+              value={systemPrompt || ''} 
               onChange={(e) => setSystemPrompt(e.target.value)}
               placeholder="e.g. Friendly, patient, and solutions-oriented..."
             />
@@ -1228,7 +1256,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
 
           <div className="form-group">
              <label>Voice Persona</label>
-             <select className="form-input" onChange={(e) => setVoice(e.target.value)} value={voice}>
+             <select className="form-input" onChange={(e) => setVoice(e.target.value)} value={voice || ''}>
                 <option value="Aoede">Aoede</option>
                 <option value="Charon">Charon</option>
                 <option value="Fenrir">Fenrir</option>
@@ -1238,7 +1266,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           </div>
           <div className="form-group">
              <label>Language</label>
-             <select className="form-input" onChange={(e) => setLanguage(e.target.value)} value={language}>
+             <select className="form-input" onChange={(e) => setLanguage(e.target.value)} value={language || ''}>
                 {LANGUAGES.map((lang) => (
                    <option key={lang} value={lang}>{lang}</option>
                 ))}
@@ -1378,8 +1406,15 @@ Output only natural spoken text. No stage directions, no brackets, no role label
                     fontWeight: 700, 
                     textTransform: 'uppercase', 
                     letterSpacing: '1px',
-                    color: turn.role === 'user' ? 'var(--accent-active)' : 'var(--text-muted)'
+                    color: turn.role === 'user' ? 'var(--accent-active)' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}>
+                    {turn.role === 'system' && turn.toolName && ToolIcons[turn.toolName] && (() => {
+                      const Icon = ToolIcons[turn.toolName];
+                      return <Icon size={12} />;
+                    })()}
                     {turn.role === 'user' ? userCallName : turn.role === 'system' ? 'System' : personaName}
                   </span>
                   {turn.isFinal && <CheckCircle size={10} style={{ color: 'var(--accent-active)', opacity: 0.5 }} />}
@@ -1399,7 +1434,30 @@ Output only natural spoken text. No stage directions, no brackets, no role label
           <div className="overlay-title">Integrations</div>
           <button className="close-overlay-btn" onClick={() => setActiveOverlay(null)}><X size={20} /></button>
         </div>
-        <div className="overlay-content"><p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '40px' }}>All tools active.</p></div>
+        <div className="overlay-content" style={{ padding: '24px' }}>
+          <div style={{ display: 'grid', gap: '12px' }}>
+            {tools.map(tool => {
+              const Icon = ToolIcons[tool.name] || Terminal;
+              return (
+                <div key={tool.name} style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', padding: '16px', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ padding: '10px', backgroundColor: 'rgba(203,251,69,0.1)', borderRadius: '8px', color: 'var(--accent-active)' }}>
+                    <Icon size={20} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-main)', fontSize: '15px', marginBottom: '4px' }}>{tool.name}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.4' }}>{tool.description || 'No description available.'}</div>
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    <label className="switch">
+                      <input type="checkbox" checked={tool.isEnabled} onChange={() => useTools.getState().toggleTool(tool.name)} />
+                      <span className="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* Auth Screen */}
@@ -1418,16 +1476,16 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             {isSignupMode && (
                <div className="auth-input-wrapper">
                  <User className="auth-icon-left" size={20} />
-                 <input type="text" placeholder="Full name" value={name} onChange={e => setName(e.target.value)} />
+                 <input type="text" placeholder="Full name" value={name || ''} onChange={e => setName(e.target.value)} />
                </div>
             )}
             <div className="auth-input-wrapper">
               <Mail className="auth-icon-left" size={20} />
-              <input type="email" placeholder="Email" required value={email} onChange={e => setEmail(e.target.value)} />
+              <input type="email" placeholder="Email" required value={email || ''} onChange={e => setEmail(e.target.value)} />
             </div>
             <div className="auth-input-wrapper">
               <Lock className="auth-icon-left" size={20} />
-              <input type="password" placeholder="Password" required value={password} onChange={e => setPassword(e.target.value)} />
+              <input type="password" placeholder="Password" required value={password || ''} onChange={e => setPassword(e.target.value)} />
             </div>
             {isSignupMode && (
                 <div className="auth-input-wrapper">

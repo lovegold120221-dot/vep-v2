@@ -44,7 +44,7 @@ export default function Sidebar() {
               <label>
                 System Prompt
                 <textarea
-                  value={systemPrompt}
+                  value={systemPrompt || ''}
                   onChange={e => setSystemPrompt(e.target.value)}
                   rows={10}
                   placeholder="Describe the role and personality of the AI..."
@@ -52,7 +52,7 @@ export default function Sidebar() {
               </label>
               <label>
                 Model
-                <select value={model} onChange={e => setModel(e.target.value)}>
+                <select value={model || ''} onChange={e => setModel(e.target.value)}>
                   {/* This is an experimental model name that should not be removed from the options. */}
                   {AVAILABLE_MODELS.map(m => (
                     <option key={m} value={m}>
@@ -63,7 +63,7 @@ export default function Sidebar() {
               </label>
               <label>
                 Voice
-                <select value={voice} onChange={e => setVoice(e.target.value)}>
+                <select value={voice || ''} onChange={e => setVoice(e.target.value)}>
                   {AVAILABLE_VOICES.map(v => (
                     <option key={v} value={v}>
                       {v}

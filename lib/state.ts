@@ -14,25 +14,191 @@ export const workspaceTools: FunctionCall[] = [
     description: "Gets the current local date and time.",
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {}
-    }
+    parameters: { type: "OBJECT", properties: {} }
   },
   {
     name: "calculate",
-    description: "Evaluates a simple math expression. Supports numbers, basic operators (+, -, *, /).",
+    description: "Safely evaluates a simple math expression. Supports numbers, +, -, *, /, %, **, parentheses, and common math functions.",
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
     parameters: {
       type: "OBJECT",
       properties: {
-        expression: {
-          type: "STRING",
-          description: "Math expression to calculate, e.g. '25 * 1.12' or '144 / 12'."
-        }
+        expression: { type: "STRING", description: "Math expression to calculate, e.g. '25 * 1.12' or 'sqrt(144)'." }
       },
       required: ["expression"]
+    }
+  },
+  {
+    name: "create_markdown_document",
+    description: "Creates a Markdown document locally in the artifacts folder.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Filename ending in .md. Example: project-plan.md" },
+        title: { type: "STRING", description: "Document title." },
+        content: { type: "STRING", description: "Markdown content body." }
+      },
+      required: ["filename", "title", "content"]
+    }
+  },
+  {
+    name: "create_html_document",
+    description: "Creates a standalone HTML document locally in the artifacts folder. Useful for web artifacts, docs, reports, or previews.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Filename ending in .html. Example: dashboard-plan.html" },
+        title: { type: "STRING", description: "Page title." },
+        body: { type: "STRING", description: "HTML body content. Can include headings, paragraphs, lists, and simple tables." }
+      },
+      required: ["filename", "title", "body"]
+    }
+  },
+  {
+    name: "create_project_brief",
+    description: "Creates a structured project brief document.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        project_name: { type: "STRING" },
+        goal: { type: "STRING" },
+        audience: { type: "STRING" },
+        features: { type: "ARRAY", items: { type: "STRING" } },
+        risks: { type: "ARRAY", items: { type: "STRING" } },
+        next_steps: { type: "ARRAY", items: { type: "STRING" } }
+      },
+      required: ["project_name", "goal"]
+    }
+  },
+  {
+    name: "create_checklist",
+    description: "Creates a checklist document from a list of tasks.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Filename ending in .md." },
+        title: { type: "STRING" },
+        items: { type: "ARRAY", items: { type: "STRING" } }
+      },
+      required: ["filename", "title", "items"]
+    }
+  },
+  {
+    name: "save_note",
+    description: "Saves a local text note in the notes folder.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "STRING", description: "Note name without extension." },
+        content: { type: "STRING", description: "Text content to save." }
+      },
+      required: ["name", "content"]
+    }
+  },
+  {
+    name: "read_note",
+    description: "Reads a saved note from the notes folder.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        name: { type: "STRING", description: "Note name without extension." }
+      },
+      required: ["name"]
+    }
+  },
+  {
+    name: "list_notes",
+    description: "Lists saved notes.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: { type: "OBJECT", properties: {} }
+  },
+  {
+    name: "create_json_file",
+    description: "Creates a JSON file locally in the artifacts folder.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Filename ending in .json." },
+        data: { type: "STRING", description: "Valid JSON string to save." }
+      },
+      required: ["filename", "data"]
+    }
+  },
+  {
+    name: "validate_json",
+    description: "Validates whether a string is valid JSON.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        json_text: { type: "STRING", description: "JSON text to validate." }
+      },
+      required: ["json_text"]
+    }
+  },
+  {
+    name: "create_env_template",
+    description: "Creates a safe .env.example template without real secrets.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Usually .env.example or backend.env.example." },
+        variables: { type: "ARRAY", items: { type: "STRING" }, description: "Environment variable names to include." }
+      },
+      required: ["filename", "variables"]
+    }
+  },
+  {
+    name: "create_readme",
+    description: "Creates a README.md document for a project.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        project_name: { type: "STRING" },
+        description: { type: "STRING" },
+        install_steps: { type: "ARRAY", items: { type: "STRING" } },
+        run_steps: { type: "ARRAY", items: { type: "STRING" } },
+        features: { type: "ARRAY", items: { type: "STRING" } }
+      },
+      required: ["project_name", "description"]
+    }
+  },
+  {
+    name: "create_chart_spec",
+    description: "Creates a chart specification as JSON. This does not render the chart; it prepares structured data for a frontend chart component.",
+    isEnabled: true,
+    scheduling: FunctionResponseScheduling.INTERRUPT,
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        filename: { type: "STRING", description: "Filename ending in .json." },
+        chart_type: { type: "STRING", description: "bar, line, pie, area, scatter.", enum: ["bar", "line", "pie", "area", "scatter"] },
+        title: { type: "STRING" },
+        labels: { type: "ARRAY", items: { type: "STRING" } },
+        values: { type: "ARRAY", items: { type: "NUMBER" } }
+      },
+      required: ["filename", "chart_type", "title", "labels", "values"]
     }
   },
   {
@@ -43,249 +209,36 @@ export const workspaceTools: FunctionCall[] = [
     parameters: {
       type: "OBJECT",
       properties: {
-        command: {
-          type: "STRING",
-          description: "Safe command to run (date, uptime, hostname, pwd, whoami, ls)."
-        }
+        command: { type: "STRING", description: "Safe command to run.", enum: ["date", "uptime", "hostname", "pwd", "whoami", "ls"] }
       },
       required: ["command"]
     }
   },
   {
-    name: "search_drive_files",
-    description: "Searches for files in the user's Google Drive. Use this to find documents, spreadsheets, etc. Query can be like 'name contains \"report\"' or simply 'report'.",
+    name: "open_browser_url",
+    description: "Opens a URL in the local default browser.",
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
     parameters: {
       type: "OBJECT",
       properties: {
-        q: {
-          type: "STRING",
-          description: "Search query. E.g. 'name contains \"project\"' or 'fullText contains \"budget\"'. Leave empty to list recent files."
-        }
-      }
-    }
-  },
-  {
-    name: "get_drive_file_content",
-    description: "Gets the text content of a Google Docs file, or export links for other Drive files.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        fileId: {
-          type: "STRING",
-          description: "The ID of the file to retrieve."
-        }
+        url: { type: "STRING", description: "URL to open. Must start with http:// or https://." }
       },
-      required: ["fileId"]
+      required: ["url"]
     }
   },
   {
-    name: "list_gmail_messages",
-    description: "Lists Gmail messages for the user. Use this to check for new emails or a specific query.",
+    name: "extract_tasks",
+    description: "Extracts action items from text and saves them as a Markdown checklist.",
     isEnabled: true,
     scheduling: FunctionResponseScheduling.INTERRUPT,
     parameters: {
       type: "OBJECT",
       properties: {
-        q: {
-          type: "STRING",
-          description: "Search query. e.g. 'from:boss' or 'is:unread'"
-        }
-      }
-    }
-  },
-  {
-    name: "get_gmail_message",
-    description: "Gets the content of a specific Gmail message by ID.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        id: {
-          type: "STRING",
-          description: "The ID of the Gmail message."
-        }
+        filename: { type: "STRING" },
+        source_text: { type: "STRING" }
       },
-      required: ["id"]
-    }
-  },
-  {
-    name: "search_contacts",
-    description: "Search the user's Google Contacts.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        query: {
-          type: "STRING",
-          description: "Name, email, or other info to search for in contacts."
-        }
-      },
-      required: ["query"]
-    }
-  },
-  {
-    name: "list_calendar_events",
-    description: "Lists calendar events for the user.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        timeMin: {
-          type: "STRING",
-          description: "Lower bound (exclusive) for an event's end time to filter by. ISO format."
-        },
-        timeMax: {
-          type: "STRING",
-          description: "Upper bound (exclusive) for an event's start time to filter by. ISO format."
-        }
-      }
-    }
-  },
-  {
-    name: "get_user_location",
-    description: "Gets the user's current geographic coordinates (latitude and longitude) using the browser Geolocation API. Use this when the user asks 'where am I' or needs local information.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {}
-    }
-  },
-  {
-    name: "search_contacts",
-    description: "Searches for a user's contacts.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        query: { type: "STRING", description: "Search query for contacts" }
-      }
-    }
-  },
-  {
-    name: "get_current_date",
-    description: "Gets the current date and time.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {}
-    }
-  },
-  {
-    name: "search_places",
-    description: "Searches for places (restaurants, landmarks, etc.) using Google Maps Places API.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        query: {
-          type: "STRING",
-          description: "Search text, e.g. 'restaurants near me' or 'coffee in London'"
-        },
-        location: {
-          type: "STRING",
-          description: "Optional location bias as 'lat,lng'"
-        }
-      },
-      required: ["query"]
-    }
-  },
-  {
-    name: "list_contacts",
-    description: "Lists the user's Google Contacts.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        pageSize: {
-          type: "NUMBER",
-          description: "Number of contacts to return"
-        }
-      }
-    }
-  },
-  {
-    name: "fetch_google_api",
-    description: "Fetches or writes data using Google APIs. The AI decides the correct Google API endpoint URL based on what the user wants to accomplish (e.g., https://www.googleapis.com/calendar/v3/calendars/primary/events for Calendar; https://gmail.googleapis.com/gmail/v1/users/me/messages for Gmail). You can use this for GET, POST, PUT, DELETE, etc.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        url: {
-          type: "STRING",
-          description: "The full URL endpoint for the Google API. e.g. https://www.googleapis.com/calendar/v3/calendars/primary/events"
-        },
-        method: {
-          type: "STRING",
-          description: "HTTP Method, e.g. GET, POST, PUT, PATCH, DELETE"
-        },
-        body: {
-          type: "OBJECT",
-          description: "Optional JSON body for POST/PUT/PATCH requests."
-        }
-      },
-      required: ["url", "method"]
-    }
-  },
-  {
-    name: "save_memory",
-    description: "Saves important personal information, context, conversation topics, or session summaries for long-term memory. Use this when the user explicitly asks you to 'remember' or 'save' something, or when significant progress is made to ensure you never lose context.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        content: {
-          type: "STRING",
-          description: "The specific fact, preference, or topic to remember. Clear, concise sentence or two."
-        },
-        type: {
-          type: "STRING",
-          description: "Type of memory: 'personal', 'work', or 'project'",
-          enum: ['personal', 'work', 'project']
-        }
-      },
-      required: ["content", "type"]
-    }
-  },
-  {
-    name: "generate_artifact",
-    description: "Generates a visual document or data artifact (like a report, code snippet, chart, or structured document) to be displayed to the user. Use this when the user asks to create a document, write code, or generate a detailed report.",
-    isEnabled: true,
-    scheduling: FunctionResponseScheduling.INTERRUPT,
-    parameters: {
-      type: "OBJECT",
-      properties: {
-        title: {
-          type: "STRING",
-          description: "The title of the artifact"
-        },
-        type: {
-          type: "STRING",
-          description: "The type of artifact: 'markdown', 'code', 'chart', 'structured'"
-        },
-        content: {
-          type: "STRING",
-          description: "The actual content of the artifact (Markdown string, code, or JSON data for charts)"
-        },
-        language: {
-          type: "STRING",
-          description: "If type is 'code', the programming language"
-        }
-      },
-      required: ["title", "type", "content"]
+      required: ["filename", "source_text"]
     }
   }
 ];

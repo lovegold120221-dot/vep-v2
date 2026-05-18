@@ -64,7 +64,7 @@ export default function ToolEditorModal({
           <input
             id="tool-name"
             type="text"
-            value={name}
+            value={name || ''}
             onChange={e => setName(e.target.value)}
           />
         </div>
@@ -72,7 +72,7 @@ export default function ToolEditorModal({
           <label htmlFor="tool-description">Description</label>
           <textarea
             id="tool-description"
-            value={description}
+            value={description || ''}
             onChange={e => setDescription(e.target.value)}
             rows={3}
           />
@@ -104,7 +104,7 @@ export default function ToolEditorModal({
           <textarea
             id="tool-parameters"
             className="json-editor"
-            value={parametersStr}
+            value={parametersStr || ''}
             onChange={e => setParametersStr(e.target.value)}
           />
           {jsonError && <p className="json-error">{jsonError}</p>}
