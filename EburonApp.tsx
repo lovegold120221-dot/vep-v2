@@ -211,8 +211,9 @@ export default function EburonApp() {
               console.error("Failed to load history:", err);
               setHistoryError(err.message);
             }
-          } catch (e) {
-            console.error("Error loading user data from Postgres:", e);
+          } catch (e: any) {
+            console.error("Error loading user data via API:", e);
+            setHistoryError("Error syncing settings or memory: " + e.message);
           }
        } else {
           setIsAuthOpen(true);

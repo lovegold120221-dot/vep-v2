@@ -134,12 +134,32 @@ async function startServer() {
   app.get("/api/conversations", authenticateToken, async (req: any, res) => {
     try {
       const { uid } = req.user;
-      const limit = Number(req.query.limit) || 100;
+      const limitAmt = Number(req.query.limit) || 100;
       
+      if (pgPool) {
+        try {
+          const result = await pgPool.query(
+            "SELECT * FROM user_conversations WHERE uid = $1 ORDER BY created_at DESC LIMIT $2",
+            [uid, limitAmt]
+          );
+          const data = result.rows.map(row => ({
+            id: row.id.toString(),
+            uid: row.uid,
+            session_id: row.session_id,
+            role: row.role,
+            content: row.content,
+            created_at: row.created_at
+          }));
+          return res.json(data ? data.reverse() : []);
+        } catch (e) {
+          console.error("PG Read sync error", e);
+        }
+      }
+
       const snapshot = await db.collection('user_conversations')
         .where('uid', '==', uid)
         .orderBy('created_at', 'desc')
-        .limit(limit)
+        .limit(limitAmt)
         .get();
 
       const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));

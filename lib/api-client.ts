@@ -11,7 +11,7 @@ export async function fetchSettings() {
     return docSnap.data();
   }
   
-  const defaultSettings = { persona_name: 'Beatrice', language: 'en_US:en' };
+  const defaultSettings = { persona_name: 'Beatrice', language: 'English' };
   await setDoc(docRef, defaultSettings);
   return defaultSettings;
 }
@@ -73,28 +73,12 @@ export async function fetchConversations(num = 100) {
     console.warn("fetchConversations: Not authenticated");
     return [];
   }
-  
-  const q = query(
-    collection(db, "user_conversations"),
-    where("uid", "==", user.uid)
-  );
-  
-  const snapshot = await getDocs(q);
-  const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  const sorted = data.sort((a: any, b: any) => {
-    const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
-    const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
-    return tA - tB; // asc (reverse of desc) so oldest first, wait previously it was sorted desc then reversed. So we want oldest first!
+  const token = await user.getIdToken();
+  const res = await fetch(`/api/conversations?limit=${num}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
   });
-  // Since we reversed in the old logic:
-  // `getDocs() desc limit(num) then reverse()`
-  // Now we just sort desc, slice, then reverse:
-  const descSorted = data.sort((a: any, b: any) => {
-    const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
-    const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
-    return tB - tA; // desc
-  });
-  return descSorted.slice(0, num).reverse();
+  if (!res.ok) throw new Error(`Fetch conversations failed: ${res.status}`);
+  return res.json();
 }
 
 export async function saveConversationTurn(role: string, content: string, session_id?: string) {
