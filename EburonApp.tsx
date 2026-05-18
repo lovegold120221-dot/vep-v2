@@ -151,12 +151,12 @@ export default function EburonApp() {
           
           try {
             // Fetch Settings
-            const settings = await api.fetchSettings();
-            setPersonaName(settings.persona_name);
-            setUserCallName(settings.user_call_name);
-            setSystemPrompt(settings.system_prompt);
-            setVoice(settings.voice);
-            setLanguage(settings.language);
+            const settings = await api.fetchSettings() || {};
+            if (settings.persona_name) setPersonaName(settings.persona_name);
+            if (settings.user_call_name) setUserCallName(settings.user_call_name);
+            if (settings.system_prompt) setSystemPrompt(settings.system_prompt);
+            if (settings.voice) setVoice(settings.voice);
+            if (settings.language) setLanguage(settings.language);
 
             // Fetch memories
             const memoryList = await api.fetchMemories();
@@ -563,8 +563,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
       },
       tools: [
         ...enabledTools,
-        { googleSearch: {} },
-        { urlContext: {} }
+        { googleSearch: {} }
       ]
     } as any);
   }, [setConfig, tools, voice, language, personaName, userCallName, systemPrompt, memories]);
