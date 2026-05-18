@@ -311,33 +311,42 @@ export default function EburonApp() {
     };
 
     const handleOutputTranscription = (text: string, isFinal: boolean) => {
-      // When agent speaks, clear user committed buffer
-      userTranscriptCommitted.current = "";
-
-      const currentTurns = useLogStore.getState().turns;
-      const last = currentTurns[currentTurns.length - 1];
-      
-      const fullText = agentTranscriptCommitted.current + text;
-      
-      if (last && last.role === 'agent' && !last.isFinal) {
-        updateLastTurn({
-          text: fullText,
-          isFinal: false,
-        });
-      } else if (text.trim()) {
-        addTurn({ role: 'agent', text: fullText, isFinal: false });
-      }
-
-      if (isFinal) {
-        agentTranscriptCommitted.current = fullText + " ";
-      }
+       // We ignore outputTranscription because we use handleContent's modelTurn for real-time AI transcription
     };
 
     const handleContent = (serverContent: any) => {
-      // Prioritize outputTranscription for agent text to ensure synchronization with audio.
-      // However, we still need to handle tool calls and other non-text parts if they arrive here.
-      // In this app, tool calls are already handled via the 'toolcall' event listener.
-      // so we can safely ignore modelTurn text here to avoid duplication/clashes.
+      // Use modelTurn text for real-time agent text.
+      if (serverContent.modelTurn && serverContent.modelTurn.parts) {
+         const turns = useLogStore.getState().turns;
+         const lastUser = turns[turns.length - 1];
+         if (lastUser && lastUser.role === 'user' && !lastUser.isFinal) {
+            updateLastTurn({ isFinal: true });
+            api.saveConversationTurn('user', lastUser.text, sessionID).catch(console.error);
+         }
+
+         let textChunk = "";
+         serverContent.modelTurn.parts.forEach((p: any) => {
+            if (p.text) textChunk += p.text;
+         });
+         if (textChunk) {
+            userTranscriptCommitted.current = "";
+            const currentTurns = useLogStore.getState().turns;
+            const last = currentTurns[currentTurns.length - 1];
+            
+            const fullText = agentTranscriptCommitted.current + textChunk;
+            
+            if (last && last.role === 'agent' && !last.isFinal) {
+              updateLastTurn({
+                text: fullText,
+                isFinal: false,
+              });
+            } else if (textChunk.trim()) {
+              addTurn({ role: 'agent', text: fullText, isFinal: false });
+            }
+            
+            agentTranscriptCommitted.current = fullText;
+         }
+      }
     };
 
     const handleInterrupted = () => {
@@ -365,16 +374,7 @@ export default function EburonApp() {
        // If user finished a segment, we could save it, but let's wait for agent to start or turn complete
     });
     
-    client.on('outputTranscription', (text, isFinal) => {
-       // When agent starts speaking, check if the previous turn was user and finalize/save it
-       const turns = useLogStore.getState().turns;
-       const last = turns[turns.length - 1];
-       if (last && last.role === 'user' && !last.isFinal) {
-          updateLastTurn({ isFinal: true });
-          api.saveConversationTurn('user', last.text, sessionID).catch(console.error);
-       }
-       handleOutputTranscription(text, isFinal);
-    });
+    client.on('outputTranscription', handleOutputTranscription);
     
     client.on('content', handleContent);
     client.on('interrupted', handleInterrupted);
