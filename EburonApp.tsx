@@ -297,35 +297,64 @@ export default function EburonApp() {
     const { addTurn, updateLastTurn } = useLogStore.getState();
 
     const handleInputTranscription = (text: string, isFinal: boolean) => {
-      // When user speaks, clear agent committed buffer as we've switched turns
+      // Agent turn is broken, so user starts speaking
       agentTranscriptCommitted.current = "";
 
       const currentTurns = useLogStore.getState().turns;
       const last = currentTurns[currentTurns.length - 1];
       
-      // text is typically the full string for the current audio segment
-      const fullText = userTranscriptCommitted.current + text;
-      
       if (last && last.role === 'user' && !last.isFinal) {
+        const newText = last.text + text;
         updateLastTurn({
-          text: fullText, 
-          isFinal: false,
+          text: newText, 
+          isFinal: false, // We'll finalize via turncomplete or explicit isFinal
         });
+        if (isFinal) {
+          userTranscriptCommitted.current = newText + " ";
+        }
       } else if (text.trim()) {
-        addTurn({ role: 'user', text: fullText, isFinal: false });
-      }
-
-      if (isFinal) {
-        userTranscriptCommitted.current = fullText + " ";
+        addTurn({ role: 'user', text, isFinal: false });
+        if (isFinal) {
+          userTranscriptCommitted.current = text + " ";
+        }
       }
     };
 
     const handleOutputTranscription = (text: string, isFinal: boolean) => {
-       // We ignore outputTranscription because we use handleContent's modelTurn for real-time AI transcription
+      // clear user buffer because agent is speaking
+      userTranscriptCommitted.current = "";
+      
+      const turns = useLogStore.getState().turns;
+      const lastUser = turns[turns.length - 1];
+      if (lastUser && lastUser.role === 'user' && !lastUser.isFinal) {
+         updateLastTurn({ isFinal: true });
+         api.saveConversationTurn('user', lastUser.text, sessionID).catch(console.error);
+      }
+
+      const currentTurns = useLogStore.getState().turns;
+      const last = currentTurns[currentTurns.length - 1];
+      
+      if (last && last.role === 'agent' && !last.isFinal) {
+        const newText = last.text + text;
+        updateLastTurn({
+          text: newText,
+          isFinal: false,
+        });
+        if (isFinal) {
+          agentTranscriptCommitted.current = newText + " ";
+        }
+      } else if (text.trim()) {
+        addTurn({ role: 'agent', text, isFinal: false });
+        if (isFinal) {
+          agentTranscriptCommitted.current = text + " ";
+        }
+      }
     };
 
     const handleContent = (serverContent: any) => {
-      // Use modelTurn text for real-time agent text.
+      // `outputTranscription` handles real-time agent text.
+      // We also catch modelTurn here to close the user turn if needed when the AI actually responds,
+      // and capture any text parts if the model generated text modality instead of audio.
       if (serverContent.modelTurn && serverContent.modelTurn.parts) {
          const turns = useLogStore.getState().turns;
          const lastUser = turns[turns.length - 1];
@@ -338,6 +367,7 @@ export default function EburonApp() {
          serverContent.modelTurn.parts.forEach((p: any) => {
             if (p.text) textChunk += p.text;
          });
+         
          if (textChunk) {
             userTranscriptCommitted.current = "";
             const currentTurns = useLogStore.getState().turns;
