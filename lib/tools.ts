@@ -225,13 +225,13 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
   },
   {
     name: 'fetch_google_api',
-    description: 'Fetches data from a Google API. Provide the full endpoint URL. Useful for Gmail, Calendar, Contacts, Drive APIs. Method is GET.',
+    description: 'Fetches data from a Google API. Provide the full endpoint URL. Useful for Gmail, Calendar, Contacts. Method is GET.',
     parameters: {
       type: 'OBJECT',
       properties: {
         url: {
           type: 'STRING',
-          description: 'The full Google API URL to fetch from (e.g. https://www.googleapis.com/calendar/v3/users/me/calendarList)'
+          description: 'The full Google API URL to fetch from (e.g. https://www.googleapis.com/calendar/v3/calendars/primary/events or https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses or https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=10)'
         }
       },
       required: ['url']
@@ -249,6 +249,30 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
         body: { type: 'STRING', description: 'The email body text.' }
       },
       required: ['to', 'subject', 'body']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'search_gmail',
+    description: 'Searches Gmail for messages matching a query.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        query: { type: 'STRING', description: 'Gmail search query (e.g., "is:unread", "from:boss@example.com").' },
+        maxResults: { type: 'INTEGER', description: 'Max number of messages to return.' }
+      },
+      required: ['query']
+    },
+    isEnabled: true,
+  },
+  {
+    name: 'get_contacts',
+    description: 'Retrieves the authenticated user\'s Google Contacts.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        maxResults: { type: 'INTEGER', description: 'Max number of contacts to return.' }
+      }
     },
     isEnabled: true,
   },

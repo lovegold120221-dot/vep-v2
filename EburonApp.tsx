@@ -416,6 +416,7 @@ export default function EburonApp() {
                    body: JSON.stringify({ title: fc.args.title || 'Untitled Document' })
                 });
                 const data = await res.json();
+                if (!res.ok) return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
                 return { id: fc.id, response: { success: true, documentId: data.documentId, url: `https://docs.google.com/document/d/${data.documentId}/edit` } };
              } catch (err: any) {
                 return { id: fc.id, response: { error: err.message } };
@@ -432,6 +433,7 @@ export default function EburonApp() {
                    body: JSON.stringify({ properties: { title: fc.args.title || 'Untitled Spreadsheet' } })
                 });
                 const data = await res.json();
+                if (!res.ok) return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
                 return { id: fc.id, response: { success: true, spreadsheetId: data.spreadsheetId, url: data.spreadsheetUrl } };
              } catch (err: any) {
                 return { id: fc.id, response: { error: err.message } };
@@ -448,6 +450,7 @@ export default function EburonApp() {
                    body: JSON.stringify({ title: fc.args.title || 'Untitled Presentation' })
                 });
                 const data = await res.json();
+                if (!res.ok) return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
                 return { id: fc.id, response: { success: true, presentationId: data.presentationId, url: `https://docs.google.com/presentation/d/${data.presentationId}/edit` } };
              } catch (err: any) {
                 return { id: fc.id, response: { error: err.message } };
@@ -464,6 +467,7 @@ export default function EburonApp() {
                    body: JSON.stringify({ info: { title: fc.args.title || 'Untitled Form' } })
                 });
                 const data = await res.json();
+                if (!res.ok) return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
                 return { id: fc.id, response: { success: true, formId: data.formId, responderUri: data.responderUri } };
              } catch (err: any) {
                 return { id: fc.id, response: { error: err.message } };
@@ -496,6 +500,9 @@ export default function EburonApp() {
                   })
                });
                const data = await res.json();
+               if (!res.ok) {
+                   return { id: fc.id, response: { error: data.error?.message || "Unknown API error" } };
+               }
                return { id: fc.id, response: { success: true, eventLink: data.htmlLink || data.id } };
             } catch (err: any) {
                return { id: fc.id, response: { error: err.message } };
@@ -520,7 +527,56 @@ export default function EburonApp() {
                   body: JSON.stringify({ raw: encodedMessage })
                });
                const data = await res.json();
+               if (!res.ok) {
+                   return { id: fc.id, response: { error: data.error?.message || "Unknown API error" } };
+               }
                return { id: fc.id, response: { success: true, messageId: data.id } };
+            } catch (err: any) {
+               return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
+          if (fc.name === 'get_contacts') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            try {
+               const res = await fetch(`https://people.googleapis.com/v1/people/me/connections?personFields=names,emailAddresses,phoneNumbers&pageSize=${fc.args.maxResults || 50}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+               });
+               const data = await res.json();
+               if (!res.ok) {
+                   return { id: fc.id, response: { error: data.error?.message || "Unknown API error", details: data } };
+               }
+               return { id: fc.id, response: data };
+            } catch (err: any) {
+               return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
+          if (fc.name === 'search_gmail') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            try {
+               const q = encodeURIComponent(fc.args.query);
+               const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${q}&maxResults=${fc.args.maxResults || 20}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+               });
+               const data = await res.json();
+               if (!res.ok) {
+                   return { id: fc.id, response: { error: data.error?.message || "Unknown API error", details: data } };
+               }
+               // Also attempt to fetch some message details for context
+               if (data.messages && data.messages.length > 0) {
+                   const detailedMessages = await Promise.all(data.messages.slice(0, 5).map(async (msg: any) => {
+                       const dRes = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, {
+                           headers: { 'Authorization': `Bearer ${token}` }
+                       });
+                       if (dRes.ok) return await dRes.json();
+                       return msg;
+                   }));
+                   data.detailedMessages = detailedMessages;
+               }
+               return { id: fc.id, response: data };
             } catch (err: any) {
                return { id: fc.id, response: { error: err.message } };
             }
@@ -530,11 +586,25 @@ export default function EburonApp() {
             const token = useAuth.getState().googleAccessToken;
             if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
             try {
-               const url = fc.args.url;
+               let url = fc.args.url;
+               // Auto-fix some known incorrect URLs
+               if (url.includes('googleapis.com/calendar/v3/users/me/calendarList')) {
+                 url = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
+               }
+               
                const res = await fetch(url, {
                   headers: { 'Authorization': `Bearer ${token}` }
                });
                const data = await res.json();
+               if (!res.ok) {
+                 return {
+                    id: fc.id,
+                    response: {
+                       error: `API returned ${res.status}: ${data.error?.message || 'Unknown error'}`,
+                       details: data
+                    }
+                 };
+               }
                return { id: fc.id, response: data };
             } catch (err: any) {
                return { id: fc.id, response: { error: err.message } };
@@ -551,6 +621,9 @@ export default function EburonApp() {
                 headers: { 'Authorization': `Bearer ${token}` },
               });
               const data = await res.json();
+              if (!res.ok) {
+                return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
+              }
               return { id: fc.id, response: data };
             } catch (err: any) {
               return { id: fc.id, response: { error: err.message } };
@@ -578,6 +651,9 @@ export default function EburonApp() {
                 })
               });
               const data = await res.json();
+              if (!res.ok) {
+                return { id: fc.id, response: { error: data.error?.message || "Unknown error" } };
+              }
               return { id: fc.id, response: data };
             } catch (err: any) {
               return { id: fc.id, response: { error: err.message } };
@@ -773,7 +849,9 @@ IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
 - Use "send_email" to send an email via Gmail.
-- Use "fetch_google_api" to read from Google Workspace (Gmail, Drive, Calendar, Contacts, Tasks).
+- Use "search_gmail" to search a user's Gmail inbox.
+- Use "get_contacts" to read the user's Google Contacts.
+- Use "fetch_google_api" to read from Google Workspace (Drive, Calendar, Tasks).
 
 GROUNDING & BROWSING:
 - You have NATIVE access to Google Search and URL fetching.
