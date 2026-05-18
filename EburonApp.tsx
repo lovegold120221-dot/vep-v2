@@ -304,7 +304,7 @@ export default function EburonApp() {
       const last = currentTurns[currentTurns.length - 1];
       
       if (last && last.role === 'user' && !last.isFinal) {
-        const newText = last.text + text;
+        const newText = userTranscriptCommitted.current + text;
         updateLastTurn({
           text: newText, 
           isFinal: false, // We'll finalize via turncomplete or explicit isFinal
@@ -313,43 +313,16 @@ export default function EburonApp() {
           userTranscriptCommitted.current = newText + " ";
         }
       } else if (text.trim()) {
-        addTurn({ role: 'user', text, isFinal: false });
+        const newText = userTranscriptCommitted.current + text;
+        addTurn({ role: 'user', text: newText, isFinal: false });
         if (isFinal) {
-          userTranscriptCommitted.current = text + " ";
+          userTranscriptCommitted.current = newText + " ";
         }
       }
     };
 
-    const handleOutputTranscription = (text: string, isFinal: boolean) => {
-      // clear user buffer because agent is speaking
-      userTranscriptCommitted.current = "";
-      
-      const turns = useLogStore.getState().turns;
-      const lastUser = turns[turns.length - 1];
-      if (lastUser && lastUser.role === 'user' && !lastUser.isFinal) {
-         updateLastTurn({ isFinal: true });
-         api.saveConversationTurn('user', lastUser.text, sessionID).catch(console.error);
-      }
-
-      const currentTurns = useLogStore.getState().turns;
-      const last = currentTurns[currentTurns.length - 1];
-      
-      if (last && last.role === 'agent' && !last.isFinal) {
-        const newText = last.text + text;
-        updateLastTurn({
-          text: newText,
-          isFinal: false,
-        });
-        if (isFinal) {
-          agentTranscriptCommitted.current = newText + " ";
-        }
-      } else if (text.trim()) {
-        addTurn({ role: 'agent', text, isFinal: false });
-        if (isFinal) {
-          agentTranscriptCommitted.current = text + " ";
-        }
-      }
-    };
+    // We will rely entirely on handleContent for model outputs, to prevent duplicate text logs
+    // between text parts generated and audio transcripts generated!
 
     const handleContent = (serverContent: any) => {
       // `outputTranscription` handles real-time agent text.
@@ -413,8 +386,6 @@ export default function EburonApp() {
        handleInputTranscription(text, isFinal);
        // If user finished a segment, we could save it, but let's wait for agent to start or turn complete
     });
-    
-    client.on('outputTranscription', handleOutputTranscription);
     
     client.on('content', handleContent);
     client.on('interrupted', handleInterrupted);
@@ -789,7 +760,6 @@ export default function EburonApp() {
 
     return () => {
       client.off('inputTranscription', handleInputTranscription);
-      client.off('outputTranscription', handleOutputTranscription);
       client.off('content', handleContent);
       client.off('interrupted', handleInterrupted);
       client.off('turncomplete', handleTurnComplete);
