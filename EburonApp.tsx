@@ -482,6 +482,26 @@ export default function EburonApp() {
              }
           }
 
+          if (fc.name === 'schedule_meeting') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+            try {
+               const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+                  method: 'POST',
+                  headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    summary: fc.args.summary,
+                    start: { dateTime: fc.args.startDateTime },
+                    end: { dateTime: fc.args.endDateTime }
+                  })
+               });
+               const data = await res.json();
+               return { id: fc.id, response: { success: true, eventLink: data.htmlLink || data.id } };
+            } catch (err: any) {
+               return { id: fc.id, response: { error: err.message } };
+            }
+          }
+
           if (fc.name === 'fetch_google_api') {
             const token = useAuth.getState().googleAccessToken;
             if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };

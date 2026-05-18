@@ -210,6 +210,20 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     isEnabled: true,
   },
   {
+    name: 'schedule_meeting',
+    description: 'Schedules a calendar meeting/event using Google Calendar API.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        summary: { type: 'STRING', description: 'Title or summary of the meeting.' },
+        startDateTime: { type: 'STRING', description: 'Start time in RFC3339 format.' },
+        endDateTime: { type: 'STRING', description: 'End time in RFC3339 format.' },
+      },
+      required: ['summary', 'startDateTime', 'endDateTime']
+    },
+    isEnabled: true,
+  },
+  {
     name: 'fetch_google_api',
     description: 'Fetches data from a Google API. Provide the full endpoint URL. Useful for Gmail, Calendar, Contacts, Drive APIs. Method is GET.',
     parameters: {
