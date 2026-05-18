@@ -8,6 +8,97 @@ import { FunctionCall } from './state';
 
 export const AVAILABLE_TOOLS: FunctionCall[] = [
   {
+    name: "register_google_site_asset",
+    description: "Registers a Google Site as a known Beatrice project asset.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        file_id: { type: "STRING" },
+        title: { type: "STRING" },
+        url: { type: "STRING" },
+        purpose: { type: "STRING" },
+        project: { type: "STRING" },
+        tags: {
+          type: "ARRAY",
+          items: { type: "STRING" }
+        }
+      },
+      required: ["file_id", "title", "url", "purpose"]
+    },
+    isEnabled: true
+  },
+  {
+    name: "create_site_content_plan",
+    description: "Creates a page-by-page content plan for a Google Site.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        site_title: { type: "STRING" },
+        site_purpose: { type: "STRING" },
+        target_audience: { type: "STRING" },
+        pages: {
+          type: "ARRAY",
+          items: {
+            type: "OBJECT",
+            properties: {
+              page_title: { type: "STRING" },
+              goal: { type: "STRING" },
+              sections: {
+                type: "ARRAY",
+                items: { type: "STRING" }
+              }
+            },
+            required: ["page_title", "goal", "sections"]
+          }
+        }
+      },
+      required: ["site_title", "site_purpose", "pages"]
+    },
+    isEnabled: true
+  },
+  {
+    name: "create_deployment_portal_copy",
+    description: "Creates copy/content for a Beatrice or Eburon deployment portal page.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        app_name: { type: "STRING" },
+        environment: {
+          type: "STRING",
+          enum: ["local", "staging", "production"]
+        },
+        backend_url: { type: "STRING" },
+        sections: {
+          type: "ARRAY",
+          items: { type: "STRING" }
+        }
+      },
+      required: ["app_name", "environment"]
+    },
+    isEnabled: true
+  },
+  {
+    name: "create_restaurant_demo_site_copy",
+    description: "Creates website copy for a restaurant demo using Beatrice as a voice and WhatsApp assistant.",
+    parameters: {
+      type: "OBJECT",
+      properties: {
+        restaurant_name: { type: "STRING" },
+        features: {
+          type: "ARRAY",
+          items: { type: "STRING" }
+        },
+        tone: {
+          type: "STRING",
+          enum: ["friendly", "premium", "casual", "modern", "local"]
+        },
+        call_to_action: { type: "STRING" }
+      },
+      required: ["restaurant_name", "features"]
+    },
+    isEnabled: true
+  },
+  {
     name: 'start_return',
     description: 'Starts the return process for an item, collecting necessary details from the user.',
     parameters: {

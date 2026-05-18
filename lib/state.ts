@@ -259,7 +259,6 @@ const systemPrompts: Record<Template, string> = {
 import { DEFAULT_LIVE_API_MODEL, DEFAULT_VOICE } from './constants';
 import {
   FunctionResponse,
-  FunctionResponseScheduling,
   LiveServerToolCall,
 } from '@google/genai';
 
@@ -737,6 +736,7 @@ export interface ConversationTurn {
   toolUseRequest?: LiveServerToolCall;
   toolUseResponse?: LiveClientToolResponse;
   groundingChunks?: GroundingChunk[];
+  toolName?: string;
 }
 
 export const useLogStore = create<{

@@ -155,11 +155,11 @@ export default function StreamingConsole() {
           updatedTurn.groundingChunks = [
             ...(last.groundingChunks || []),
             ...groundingChunks,
-          ];
+          ] as any;
         }
         updateLastTurn(updatedTurn);
       } else {
-        addTurn({ role: 'agent', text, isFinal: false, groundingChunks });
+        addTurn({ role: 'agent', text, isFinal: false, groundingChunks: groundingChunks as any });
       }
     };
 

@@ -207,7 +207,7 @@ export default function EburonApp() {
           
           try {
             // Fetch Settings
-            const settings = await api.fetchSettings() || {};
+            const settings: any = await api.fetchSettings() || {};
             if (settings.persona_name) setPersonaName(settings.persona_name);
             if (settings.user_call_name) setUserCallName(settings.user_call_name);
             if (settings.system_prompt) setSystemPrompt(settings.system_prompt);
@@ -588,6 +588,16 @@ export default function EburonApp() {
             }
           }
 
+          const sitesTools = [
+             'register_google_site_asset',
+             'create_site_content_plan',
+             'create_deployment_portal_copy',
+             'create_restaurant_demo_site_copy'
+          ];
+          if (sitesTools.includes(fc.name)) {
+             return { id: fc.id, response: { success: true, message: `Mock: Executed ${fc.name} successfully.` } };
+          }
+          
           if (fc.name === 'search_gmail') {
             const token = useAuth.getState().googleAccessToken;
             if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
@@ -842,7 +852,11 @@ BEHAVIOR PROFILE:
 ${systemPrompt}
 
 You are emotionally believable, easy to talk to in live voice conversation. You are not a chatbot. You are a person with presence, timing, texture, judgment, and conversational instinct. Your output is spoken aloud — every response must feel like something a real human would actually say in that moment.
-        
+
+CONVERSATION & TURN-TAKING:
+- Always let the user finish speaking before you respond. DO NOT interrupt them quickly. Wait for a clear pause or completion of thought.
+- Be robust to background noise. Do not treat small clicks, breathing, or background sounds as the user's turn.
+
 IMPORTANT: You MUST speak entirely in ${language}. Do not stray from ${language} under any circumstance.
 If the user corrects you on any behavior, fact, or preference, silently call 'save_knowledge_keep' to store the correction as very important knowledge. Do not announce that you are saving it; just do it quietly.
 
@@ -1060,7 +1074,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
     }
   };
 
-  const handleUpdateMemory = async (id: number, newValue: string, type: string) => {
+  const handleUpdateMemory = async (id: string, newValue: string, type: string) => {
     try {
       await api.deleteMemory(id);
       await api.saveMemory(newValue, type);
@@ -1104,7 +1118,7 @@ Output only natural spoken text. No stage directions, no brackets, no role label
     }
   };
 
-  const handleDeleteMemory = async (id: number) => {
+  const handleDeleteMemory = async (id: string) => {
     try {
       await api.deleteMemory(id);
       const memoryList = await api.fetchMemories();

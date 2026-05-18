@@ -58,9 +58,21 @@ class AudioProcessingWorklet extends AudioWorkletProcessor {
   processChunk(float32Array) {
     const l = float32Array.length;
     
+    // Simple noise gate
+    let maxAmp = 0;
+    for (let i = 0; i < l; i++) {
+       const amp = Math.abs(float32Array[i]);
+       if (amp > maxAmp) maxAmp = amp;
+    }
+    
+    // If maximum amplitude in this chunk is less than 0.005 (adjustable threshold), zero it out
+    const isSilence = maxAmp < 0.005;
+
     for (let i = 0; i < l; i++) {
       // convert float32 -1 to 1 to int16 -32768 to 32767
-      const int16Value = float32Array[i] * 32768;
+      let val = float32Array[i];
+      if (isSilence) val = 0;
+      const int16Value = val * 32768;
       this.buffer[this.bufferWriteIndex++] = int16Value;
       if(this.bufferWriteIndex >= this.buffer.length) {
         this.sendAndClearBuffer();
