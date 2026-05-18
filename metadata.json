@@ -1,0 +1,12 @@
+{
+  "name": "beatrice voice",
+  "description": "An interactive sandbox for Eburon\u0027s native audio and function calling.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera",
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
