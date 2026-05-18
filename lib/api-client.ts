@@ -1,101 +1,124 @@
-import { auth } from "./firebase";
-
-async function getHeaders() {
-  const user = auth.currentUser;
-  if (!user) return {};
-  const token = await user.getIdToken();
-  return {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
-  };
-}
+import { auth, db } from "./firebase";
+import { collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, query, where, orderBy, limit, serverTimestamp } from "firebase/firestore";
 
 export async function fetchSettings() {
-  const headers = await getHeaders();
-  const res = await fetch("/api/settings", { headers });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to fetch settings");
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  const docRef = doc(db, "user_settings", user.uid);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    return docSnap.data();
   }
-  return res.json();
+  
+  const defaultSettings = { persona_name: 'Beatrice', language: 'en_US:en' };
+  await setDoc(docRef, defaultSettings);
+  return defaultSettings;
 }
 
 export async function updateSettings(settings: any) {
-  const headers = await getHeaders();
-  const res = await fetch("/api/settings", {
-    method: "PUT",
-    headers,
-    body: JSON.stringify(settings)
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to update settings");
-  }
-  return res.json();
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  const docRef = doc(db, "user_settings", user.uid);
+  await setDoc(docRef, settings, { merge: true });
+  const updated = await getDoc(docRef);
+  return updated.data();
 }
 
 export async function fetchMemories() {
-  const headers = await getHeaders();
-  const res = await fetch("/api/memories", { headers });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to fetch memories");
-  }
-  return res.json();
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  const q = query(
+    collection(db, "user_memories"),
+    where("uid", "==", user.uid)
+  );
+  
+  const snapshot = await getDocs(q);
+  const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return docs.sort((a: any, b: any) => {
+    const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+    const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+    return tB - tA; // desc
+  });
 }
 
 export async function saveMemory(content: string, type: string) {
-  const headers = await getHeaders();
-  const res = await fetch("/api/memories", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ content, type })
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  const docRef = await addDoc(collection(db, "user_memories"), {
+    uid: user.uid,
+    content,
+    type,
+    created_at: serverTimestamp()
   });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to save memory");
-  }
-  return res.json();
+  
+  const snap = await getDoc(docRef);
+  return { id: snap.id, ...snap.data() };
 }
 
-export async function deleteMemory(id: number) {
-  const headers = await getHeaders();
-  const res = await fetch(`/api/memories/${id}`, {
-    method: "DELETE",
-    headers
-  });
-  if (!res.ok) throw new Error("Failed to delete memory");
-  return res.json();
+export async function deleteMemory(id: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  await deleteDoc(doc(db, "user_memories", id));
+  return { status: "success" };
 }
 
-export async function fetchConversations(limit = 100) {
-  const headers = await getHeaders();
-  const res = await fetch(`/api/conversations?limit=${limit}`, { headers });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to fetch conversations");
+export async function fetchConversations(num = 100) {
+  const user = auth.currentUser;
+  if (!user) {
+    console.warn("fetchConversations: Not authenticated");
+    return [];
   }
-  return res.json();
+  
+  const q = query(
+    collection(db, "user_conversations"),
+    where("uid", "==", user.uid)
+  );
+  
+  const snapshot = await getDocs(q);
+  const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const sorted = data.sort((a: any, b: any) => {
+    const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+    const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+    return tA - tB; // asc (reverse of desc) so oldest first, wait previously it was sorted desc then reversed. So we want oldest first!
+  });
+  // Since we reversed in the old logic:
+  // `getDocs() desc limit(num) then reverse()`
+  // Now we just sort desc, slice, then reverse:
+  const descSorted = data.sort((a: any, b: any) => {
+    const tA = a.created_at?.toMillis ? a.created_at.toMillis() : 0;
+    const tB = b.created_at?.toMillis ? b.created_at.toMillis() : 0;
+    return tB - tA; // desc
+  });
+  return descSorted.slice(0, num).reverse();
 }
 
 export async function saveConversationTurn(role: string, content: string, session_id?: string) {
-  const headers = await getHeaders();
-  const res = await fetch("/api/conversations", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ role, content, session_id })
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  
+  const docRef = await addDoc(collection(db, "user_conversations"), {
+    uid: user.uid,
+    role,
+    content,
+    session_id,
+    created_at: serverTimestamp()
   });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.error || "Failed to save turn");
-  }
-  return res.json();
+  
+  const snap = await getDoc(docRef);
+  return { id: snap.id, ...snap.data() };
 }
 
-export async function search(query: string) {
-  const headers = await getHeaders();
-  const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
-    headers
+export async function search(queryStr: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Not authenticated");
+  const token = await user.getIdToken();
+  const res = await fetch(`/api/search?q=${encodeURIComponent(queryStr)}`, {
+    headers: { "Authorization": `Bearer ${token}` }
   });
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));

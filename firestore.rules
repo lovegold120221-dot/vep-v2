@@ -10,22 +10,19 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-    
-    // User Schema Validation
-    function isValidUser(data) {
-      return data.keys().hasAll(['memories', 'updatedAt']) 
-        && data.memories is list
-        && data.updatedAt is string;
+
+    match /user_settings/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
     }
 
-    match /users/{userId} {
-      allow get: if isSignedIn() && request.auth.uid == userId;
-      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
-      allow update: if isSignedIn() && request.auth.uid == userId && isValidUser(request.resource.data);
+    match /user_memories/{memoryId} {
+      allow read, update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+    }
+
+    match /user_conversations/{conversationId} {
+      allow read, update, delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
     }
   }
 }
