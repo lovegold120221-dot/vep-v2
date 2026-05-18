@@ -64,11 +64,14 @@ export class AudioRecorder {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           channelCount: 1,
-          echoCancellation: { ideal: true },
-          noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: true },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
           sampleRate: this.sampleRate,
           advanced: [{
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
             googEchoCancellation: true,
             googExperimentalEchoCancellation: true,
             googNoiseSuppression: true,
