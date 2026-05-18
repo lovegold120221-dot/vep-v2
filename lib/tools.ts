@@ -276,4 +276,17 @@ export const AVAILABLE_TOOLS: FunctionCall[] = [
     },
     isEnabled: true,
   },
+  {
+    name: 'create_task',
+    description: 'Creates a new Google Task in the default task list.',
+    parameters: {
+      type: 'OBJECT',
+      properties: {
+        title: { type: 'STRING', description: 'The title or description of the task.' },
+        notes: { type: 'STRING', description: 'Optional notes for the task.' },
+      },
+      required: ['title']
+    },
+    isEnabled: true,
+  },
 ];

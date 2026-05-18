@@ -140,6 +140,7 @@ export default function EburonApp() {
   }, [audioRecorder]);
 
   const [message, setMessage] = useState('');
+  const pendingPromptRef = useRef<string | null>(null);
   const [memories, setMemories] = useState<any[]>([]);
   const [editingMemoryIndex, setEditingMemoryIndex] = useState<number | null>(null);
   const [editingMemoryValue, setEditingMemoryValue] = useState<string>('');
@@ -409,6 +410,23 @@ export default function EburonApp() {
               id: fc.id,
               response: { success: true, status: "Awaiting user confirmation in UI." }
             };
+          }
+
+          if (fc.name === 'create_task') {
+            const token = useAuth.getState().googleAccessToken;
+            if (!token) return { id: fc.id, response: { error: "Google OAuth token missing." } };
+             try {
+                const res = await fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+                   method: 'POST',
+                   headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                   body: JSON.stringify({ title: fc.args.title, notes: fc.args.notes })
+                });
+                const data = await res.json();
+                if (!res.ok) return { id: fc.id, response: { error: data.error?.message || "Unknown error parsing Google Tasks response" } };
+                return { id: fc.id, response: { success: true, task: data } };
+             } catch (err: any) {
+                return { id: fc.id, response: { error: err.message } };
+             }
           }
 
           if (fc.name === 'create_google_doc') {
@@ -772,7 +790,12 @@ export default function EburonApp() {
        
        setTimeout(() => {
          const intro = `Session started. Give a very casual, short greeting as if we are coworkers passing by or jumping on a call. Pick up from any previous context if there is any. Do NOT offer help.${historyContext}`;
-         client.send([{ text: intro }]);
+         if (pendingPromptRef.current) {
+            client.send([{ text: intro + "\n\nAlso, the user wants you to do this task immediately: " + pendingPromptRef.current }]);
+            pendingPromptRef.current = null;
+         } else {
+            client.send([{ text: intro }]);
+         }
          // We don't necessarily want to log this "SYSTEM" instruction to the user, but we could log it for debugging if needed.
          // However, the AI will respond, and THAT will be logged and saved.
        }, 1000);
@@ -854,6 +877,7 @@ IMPORTANT: When generating documents or artifacts, ALWAYS verbalize that you are
 - Use "generate_artifact" when asked to create a document, write a report, generate code, or produce a structured output.
 - Use "execute_voice_command" for safe system operations.
 - Use "send_email" to send an email via Gmail.
+- Use "create_task" to push a Task to Google Tasks.
 - Use "search_gmail" to search a user's Gmail inbox.
 - Use "get_contacts" to read the user's Google Contacts.
 - Use "fetch_google_api" to read from Google Workspace (Drive, Calendar, Tasks).
@@ -1016,7 +1040,9 @@ Output only natural spoken text. No stage directions, no brackets, no role label
       }
       else {
         useLogStore.getState().addTurn({ role: 'user', text: prompt, isFinal: true });
-        setTimeout(() => useLogStore.getState().addTurn({ role: 'agent', text: "I'm disconnected.", isFinal: true }), 800);
+        api.saveConversationTurn('user', prompt, sessionID).catch(console.error);
+        pendingPromptRef.current = prompt;
+        connect();
       }
     }
   };
@@ -1167,6 +1193,9 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             <div className="skill-chip" onClick={() => handleToolAction('google')}><div className="skill-glyph bg-google"><Globe /></div><span className="skill-label">Google</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('signature')}><div className="skill-glyph bg-signature"><PenTool /></div><span className="skill-label">Sign</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('company')}><div className="skill-glyph bg-company"><Building /></div><span className="skill-label">Company</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('chat')}><div className="skill-glyph bg-profile"><MessageSquare /></div><span className="skill-label">Chat</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('forms')}><div className="skill-glyph bg-tasks"><ClipboardList /></div><span className="skill-label">Forms</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('keep')}><div className="skill-glyph bg-calendar"><StickyNote /></div><span className="skill-label">Keep</span></div>
           </div>
         </div>
         <div className="skills-row" data-row="2">
@@ -1178,13 +1207,6 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             <div className="skill-chip" onClick={() => handleToolAction('gmail')}><div className="skill-glyph bg-gmail"><Mail /></div><span className="skill-label">Gmail</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('sheets')}><div className="skill-glyph bg-sheets"><Table /></div><span className="skill-label">Sheets</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('slides')}><div className="skill-glyph bg-slides"><Presentation /></div><span className="skill-label">Slides</span></div>
-          </div>
-        </div>
-        <div className="skills-row" data-row="3">
-          <div className="skills-track">
-            <div className="skill-chip" onClick={() => handleToolAction('chat')}><div className="skill-glyph bg-profile"><MessageSquare /></div><span className="skill-label">Chat</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('forms')}><div className="skill-glyph bg-tasks"><ClipboardList /></div><span className="skill-label">Forms</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('keep')}><div className="skill-glyph bg-calendar"><StickyNote /></div><span className="skill-label">Keep</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('meet')}><div className="skill-glyph bg-drive"><Video /></div><span className="skill-label">Meet</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('contacts')}><div className="skill-glyph bg-google"><Users /></div><span className="skill-label">Contacts</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('picker')}><div className="skill-glyph bg-company"><FileSearch /></div><span className="skill-label">Picker</span></div>
