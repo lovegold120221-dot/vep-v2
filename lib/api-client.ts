@@ -122,11 +122,7 @@ export async function connectWhatsapp() {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
   const token = await user.getIdToken();
-  let host = "";
-  if (typeof window !== "undefined" && window.location.port !== "3000") {
-    host = `${window.location.protocol}//${window.location.hostname}:3000`;
-  }
-  const res = await fetch(`${host}/api/whatsapp/connect`, {
+  const res = await fetch(`/api/whatsapp/connect`, {
     headers: { "Authorization": `Bearer ${token}` }
   });
   if (!res.ok) {
@@ -140,11 +136,7 @@ export async function sendWhatsappMessage(number: string, message: string) {
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
   const token = await user.getIdToken();
-  let host = "";
-  if (typeof window !== "undefined" && window.location.port !== "3000") {
-    host = `${window.location.protocol}//${window.location.hostname}:3000`;
-  }
-  const res = await fetch(`${host}/api/whatsapp/send`, {
+  const res = await fetch(`/api/whatsapp/send`, {
     method: "POST",
     headers: { 
       "Authorization": `Bearer ${token}`,
