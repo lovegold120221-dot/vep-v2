@@ -55,7 +55,12 @@ import {
   FileJson,
   FileCode,
   FileText,
-  Link
+  Link,
+  MessageSquare,
+  ClipboardList,
+  StickyNote,
+  Users,
+  FileSearch
 } from 'lucide-react';
 
 const ToolIcons: Record<string, React.FC<any>> = {
@@ -985,16 +990,23 @@ Output only natural spoken text. No stage directions, no brackets, no role label
       setActiveOverlay(toolId);
     } else {
       const prompts: Record<string, string> = {
-        'tasks': 'Can you show my pending tasks?',
+        'tasks': 'Create and manage tasks',
         'calendar': 'What does my schedule look like today?',
         'drive': 'Find the latest project files in my Google Drive.',
         'google': 'Run a quick Google search on recent tech news.',
         'signature': 'Prepare a non-disclosure agreement for signature.',
         'company': 'Look up the company registration details for Acme Corp.',
         'proposal': 'Draft a business proposal for a new client.',
-        'gmail': 'Check my inbox for unread emails from the team.',
+        'gmail': 'Manage emails with code',
         'sheets': 'Create a new expense tracking spreadsheet.',
-        'slides': 'Generate a presentation template for the Q3 review.'
+        'slides': 'Generate a presentation template for the Q3 review.',
+        'chat': 'Read and summarize Chat spaces',
+        'forms': 'Collect responses simply & effectively',
+        'keep': 'Organize ideas and notes',
+        'meet': 'Streamline video meeting workflows',
+        'contacts': 'Sync & manage your contacts',
+        'picker': 'Securely select Drive content',
+        'firebase': 'Built-in database, ready to use using same project workspace'
       };
       const prompt = prompts[toolId] || `Execute action: ${toolId}`;
       if (connected) {
@@ -1163,9 +1175,20 @@ Output only natural spoken text. No stage directions, no brackets, no role label
             <div className="skill-chip" onClick={() => handleToolAction('tools')}><div className="skill-glyph bg-tools"><Wrench /></div><span className="skill-label">Tools</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('history')}><div className="skill-glyph bg-history"><History /></div><span className="skill-label">History</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('proposal')}><div className="skill-glyph bg-proposal"><Presentation /></div><span className="skill-label">Proposal</span></div>
-            <div className="skill-chip" onClick={() => handleToolAction('gmail')}><div className="skill-glyph bg-gmail"><Mail /></div><span className="skill-label">Mail</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('gmail')}><div className="skill-glyph bg-gmail"><Mail /></div><span className="skill-label">Gmail</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('sheets')}><div className="skill-glyph bg-sheets"><Table /></div><span className="skill-label">Sheets</span></div>
             <div className="skill-chip" onClick={() => handleToolAction('slides')}><div className="skill-glyph bg-slides"><Presentation /></div><span className="skill-label">Slides</span></div>
+          </div>
+        </div>
+        <div className="skills-row" data-row="3">
+          <div className="skills-track">
+            <div className="skill-chip" onClick={() => handleToolAction('chat')}><div className="skill-glyph bg-profile"><MessageSquare /></div><span className="skill-label">Chat</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('forms')}><div className="skill-glyph bg-tasks"><ClipboardList /></div><span className="skill-label">Forms</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('keep')}><div className="skill-glyph bg-calendar"><StickyNote /></div><span className="skill-label">Keep</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('meet')}><div className="skill-glyph bg-drive"><Video /></div><span className="skill-label">Meet</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('contacts')}><div className="skill-glyph bg-google"><Users /></div><span className="skill-label">Contacts</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('picker')}><div className="skill-glyph bg-company"><FileSearch /></div><span className="skill-label">Picker</span></div>
+            <div className="skill-chip" onClick={() => handleToolAction('firebase')}><div className="skill-glyph bg-tools"><Database /></div><span className="skill-label">Firebase</span></div>
           </div>
         </div>
       </div>
