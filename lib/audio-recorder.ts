@@ -64,13 +64,22 @@ export class AudioRecorder {
       this.stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: this.sampleRate
-        } 
+          echoCancellation: { ideal: true },
+          noiseSuppression: { ideal: true },
+          autoGainControl: { ideal: true },
+          sampleRate: this.sampleRate,
+          advanced: [{
+            googEchoCancellation: true,
+            googExperimentalEchoCancellation: true,
+            googNoiseSuppression: true,
+            googHighpassFilter: true,
+            googTypingNoiseDetection: true,
+            googAutoGainControl: true
+          } as any]
+        } as any
       });
-      this.audioContext = await audioContext({ sampleRate: this.sampleRate });
+      // Share the same audio context as out-audio to greatly improve browser's hardware echo cancellation
+      this.audioContext = await audioContext({ id: 'audio-out', sampleRate: this.sampleRate });
       this.source = this.audioContext.createMediaStreamSource(this.stream);
 
       const workletName = 'audio-recorder-worklet';

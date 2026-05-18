@@ -57,7 +57,7 @@ export function useLiveApi({
   useEffect(() => {
     let isCancelled = false;
     if (!audioStreamerRef.current) {
-      audioContext({ id: 'audio-out' }).then((audioCtx: AudioContext) => {
+      audioContext({ id: 'audio-out', sampleRate: 16000 }).then((audioCtx: AudioContext) => {
         if (isCancelled) return;
         if (audioStreamerRef.current) return;
         audioStreamerRef.current = new AudioStreamer(audioCtx);
