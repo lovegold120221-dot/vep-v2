@@ -1059,7 +1059,6 @@ Output only natural spoken text. No stage directions, no brackets, no role label
      provider.addScope('https://www.googleapis.com/auth/documents');
      provider.addScope('https://www.googleapis.com/auth/forms.body');
      provider.addScope('https://www.googleapis.com/auth/forms.responses.readonly');
-     provider.addScope('https://www.googleapis.com/auth/keep');
      provider.addScope('https://www.googleapis.com/auth/meetings.space.created');
      provider.addScope('https://www.googleapis.com/auth/spreadsheets');
      provider.addScope('https://www.googleapis.com/auth/presentations');
