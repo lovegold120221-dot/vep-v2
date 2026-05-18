@@ -1,8 +1,25 @@
 import { auth } from "./firebase";
 
 async function getAuthHeaders() {
-  const user = auth.currentUser;
-  if (!user) throw new Error("Not authenticated");
+  let user = auth.currentUser;
+  
+  if (!user) {
+    // Wait a bit for auth to initialize
+    await new Promise((resolve) => {
+      const unsubscribe = auth.onAuthStateChanged((u) => {
+        user = u;
+        unsubscribe();
+        resolve(u);
+      });
+      // Timeout after 2 seconds
+      setTimeout(() => {
+        unsubscribe();
+        resolve(null);
+      }, 2000);
+    });
+  }
+
+  if (!user) throw new Error("Not authenticated - please sign in.");
   const token = await user.getIdToken();
   return {
     "Authorization": `Bearer ${token}`,

@@ -191,12 +191,11 @@ export function useLiveApi({
               break;
 
             case 'save_memory':
-              const user = auth.currentUser;
-              if (!user) {
-                responsePayload = { error: 'No user authenticated. Cannot save memory.' };
-              } else {
+              try {
                 await api.saveMemory((fc.args as any).content, (fc.args as any).type || 'personal');
                 responsePayload = { success: true, status: 'Memory saved successfully' };
+              } catch (err: any) {
+                responsePayload = { error: `Failed to save memory: ${err.message}` };
               }
               break;
 

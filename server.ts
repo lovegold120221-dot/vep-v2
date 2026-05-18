@@ -19,7 +19,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = getFirestore(undefined, firebaseConfig.firestoreDatabaseId);
+const db = admin.firestore();
 
 const pgPool = process.env.DATABASE_URL ? new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -238,6 +238,7 @@ async function startServer() {
     try {
       const { uid } = req.user;
       const { content, type = 'personal' } = req.body;
+      console.log(`Saving memory for user ${uid}: ${content.substring(0, 50)}...`);
 
       if (!content) {
         return res.status(400).json({ error: "Missing 'content' in request body" });
@@ -251,10 +252,11 @@ async function startServer() {
       });
 
       const doc = await docRef.get();
+      console.log(`Memory saved successfully as ${doc.id}`);
       res.json({ id: doc.id, ...doc.data() });
     } catch (err: any) {
-      console.error("Memories POST catch error:", err);
-      res.status(500).json({ error: "Internal server error: " + err.message });
+      console.error("Memories POST error:", err);
+      res.status(500).json({ error: "Failed to save memory: " + err.message });
     }
   });
 
